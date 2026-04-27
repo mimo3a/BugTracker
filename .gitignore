@@ -1,17 +1,7 @@
-# ---> Java
-# Compiled class file
+# ============================
+# Java / Maven (Backend)
+# ============================
 *.class
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
 *.jar
 *.war
 *.nar
@@ -19,7 +9,193 @@
 *.zip
 *.tar.gz
 *.rar
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# Spring Boot
+*.original
+HELP.md
+.mvn/
+
+# Maven Wrapper
+.mvnw
+.mvnw.cmd
+
+# JVM crash logs
 hs_err_pid*
+replay_pid*
 
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# ============================
+# Node.js / React / Vite (Frontend)
+# ============================
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Frontend logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# ============================
+# IDEs
+# ============================
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Eclipse
+.classpath
+.project
+.settings/
+.metadata/
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ============================
+# Claude / AI-Assistenten
+# ============================
+.claude/
+CLAUDE.md
+.cursor/
+.cursorignore
+.aider*
+.continue/
+.copilot/
+.github-copilot-cache/
+
+# Temp-Dateien von KI-Tools
+*.ai-tmp
+*.claude-tmp
+
+# ============================
+# Environment & Secrets
+# ============================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.pem
+*.key
+secrets/
+application-prod.yml
+application-secrets.yml
+application-local.yml
+
+# ============================
+# Datenbank
+# ============================
+*.db
+*.sqlite
+*.sqlite3
+*.h2.db
+*.mv.db
+*.trace.db
+data/
+
+# ============================
+# Logs
+# ============================
+*.log
+logs/
+log/
+
+# ============================
+# OS-Files
+# ============================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ============================
+# Docker
+# ============================
+*.pid
+docker-compose.override.yml
+
+# ============================
+# Test-Output
+# ============================
+test-output/
+test-results/
+*.test-results
+playwright-report/
+
+# ============================
+# Sonstiges
+# ============================
+*.tmp
+*.bak
+*.swp
+*.swo
+.history/
