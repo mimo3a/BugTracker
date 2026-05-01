@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: bugtracker
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bugtracker
+    username: bugtracker
+    password: bugtracker
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
