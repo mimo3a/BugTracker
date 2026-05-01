@@ -100,7 +100,7 @@ nbdist/
 .nb-gradle/
 
 # ============================
-# Claude / AI-Assistenten
+# AI-Assistenten
 # ============================
 .claude/
 CLAUDE.md
@@ -114,6 +114,8 @@ CLAUDE.md
 # Temp-Dateien von KI-Tools
 *.ai-tmp
 *.claude-tmp
+
+.erklaerungen/
 
 # ============================
 # Environment & Secrets
