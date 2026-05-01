@@ -196,7 +196,7 @@
 
 ---
 
-### T010 · Maven-Projekt-Setup mit Spring Boot 3.x
+### ✅ T010 · Maven-Projekt-Setup mit Spring Boot 3.x
 
 **Was:** `pom.xml` mit allen benötigten Dependencies erstellen. Grundstruktur des Backend-Projekts anlegen.
 
@@ -224,7 +224,7 @@ spring-boot-starter-test
 
 ---
 
-### T011 · Docker-Compose für PostgreSQL (Dev)
+### ✅ T011 · Docker-Compose für PostgreSQL (Dev)
 
 **Was:** `docker-compose.yml` im Repo-Root, der eine PostgreSQL-Instanz für die lokale Entwicklung startet.
 
@@ -320,7 +320,7 @@ FROM eclipse-temurin:21-jre
 
 ---
 
-### T016 · .gitignore + .gitattributes konfigurieren
+### ✅ T016 · .gitignore + .gitattributes konfigurieren
 
 **Was:** Verhindert, dass Build-Artefakte und IDE-Dateien ins Repo kommen.
 
