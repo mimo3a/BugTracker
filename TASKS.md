@@ -1,235 +1,302 @@
 # TASKS.md — BugTracker · Vollständige Aufgabenliste
 
-> Alle Tasks sind nach Priorität und Abhängigkeiten geordnet.  
-> **Reihenfolge einhalten** — spätere Epics setzen frühere voraus.  
-> Status: ☐ offen · ✅ erledigt · 🔄 in Bearbeitung
+**Stand:** Mai 2026 · Version 1.1
+**Bezugsdokumente:** Lastenheft v1.1, Pflichtenheft v1.1, MoSCoW-Matrix
+**Status-Symbole:** ☐ offen · 🔄 in Bearbeitung · ✅ erledigt
+
+> **Reihenfolge einhalten** — spätere Epics setzen frühere voraus.
+> Die Priorität entspricht der MoSCoW-Klassifikation aus dem Pflichtenheft.
 
 ---
 
-## Übersicht
+## Änderungshistorie dieser Datei
 
-| Epic | Bereich | Tasks | Voraussetzung |
-|------|---------|-------|---------------|
-| [E1 Spezifikation & Setup](#e1-spezifikation--setup) | Docs + Infra | T001–T009 | — |
-| [E2 DevOps & CI/CD](#e2-devops--cicd) | Infra | T010–T017 | E1 |
-| [E3 Auth-System](#e3-auth-system) | Backend | T018–T028 | E2 |
-| [E4 Bug-Verwaltung](#e4-bug-verwaltung) | Backend | T029–T038 | E3 |
-| [E5 Frontend Setup & Pages](#e5-frontend-setup--pages) | Frontend | T039–T055 | E3 |
-| [E6 Erweiterte Features](#e6-erweiterte-features) | Full-Stack | T056–T062 | E4 + E5 |
-| [E7 Tests & Quality](#e7-tests--quality) | Tests | T063–T071 | E4 + E5 |
-| [E8 Deployment](#e8-deployment) | DevOps | T072–T078 | E6 + E7 |
-| [E9 Präsentation & Bericht](#e9-präsentation--bericht) | Docs | T079–T083 | E8 |
+| Version | Datum       | Änderung |
+|---------|-------------|----------|
+| 1.0     | 30.04.2026  | Erstausgabe (83 Tasks) |
+| 1.1     | 04.05.2026  | Tags-CRUD, Admin-User-Mgmt, FA-07-Endpoint, JMeter-Performance-Test, FA-Mapping-Tabelle, Release-Plan-Sync, CSRF/Spring-Session-Klarstellungen ergänzt (jetzt 92 Tasks) |
 
 ---
 
-## E1: Spezifikation & Setup
+## Anforderungs-Mapping (FA → Tasks)
 
-> **Ziel:** Alle Dokumente und Werkzeuge fertig, bevor mit der Programmierung begonnen wird.  
-> **Deadline:** 30.04.2026
+Diese Tabelle dient dem Nachweis, dass jede Pflichtenheft-Anforderung implementiert wird.
+**Sie ist auch fürs Projektbericht-Kapitel "Anforderungs-Compliance" gedacht.**
+
+| FA-ID | Titel | Prio | Backend-Tasks | Frontend-Tasks |
+|-------|-------|------|---------------|----------------|
+| FA-01 | Bug anlegen                       | Muss | T031 | T048 |
+| FA-02 | Bugliste anzeigen                 | Muss | T032 | T046 |
+| FA-03 | Bug-Detailansicht                 | Muss | T033 | T047 |
+| FA-04 | Bug bearbeiten                    | Muss | T034 | T049 |
+| FA-05 | Bug archivieren (Soft-Delete)     | Muss | T035 | T051 |
+| FA-06 | Status verwalten (State-Machine)  | Muss | T036 | T050 |
+| FA-07 | Priorität setzen                  | Soll | **T036b** *(neu)* | T050 |
+| FA-08 | Bearbeiter zuweisen               | Soll | T037 | T050 |
+| FA-09 | Nach Status filtern               | Soll | T032 (Query-Param) | T053 |
+| FA-10 | Nach Titel suchen                 | Kann | T060 | T060 |
+| FA-11 | Kommentarfunktion                 | Kann | T061 | T062 |
+| FA-12 | Benutzeranmeldung (Login/Logout/Register) | Muss | T023, T024, T025, T026 | T043, T044, T045 |
+| FA-13 | E-Mail-Benachrichtigung           | Wird nicht | — (bewusst nicht implementiert, vgl. PH 5.13) | — |
+| FA-14 | Bug-Historie                      | Soll | T056, T057, T058 | T059 |
+| FA-15 | Rollen-basierte Zugriffskontrolle | Muss | T021, **T021b, T038b** *(neu)* | T041 (AdminRoute), **T053b** *(neu)* |
+| FA-16 | Tags verwalten                    | Soll | T029, **T038a** *(neu)* | **T053a** *(neu)* |
+
+| NFA-ID | Anforderung | Tasks |
+|--------|-------------|-------|
+| NFA-01 | Benutzbarkeit (Bug anlegen < 3 Min)  | T070 |
+| NFA-02 | Technologie (Spring Boot, React)      | T010, T039 |
+| NFA-03 | Plattform (Webbrowser)                | T039, T040 |
+| NFA-04 | Antwortzeit < 2 Sek (JMeter)          | **T070b** *(neu)* |
+| NFA-05 | Wartbarkeit (Coverage ≥ 60%)          | T063–T069, T071 |
+| NFA-06 | Zuverlässigkeit (Transaktionen)       | T028, T065 |
+| NFA-07 | Sicherheit (BCrypt, HttpOnly, CSRF)   | T021, T027 *(siehe CSRF-Hinweis bei T021)* |
+| NFA-08 | Architektur (Backend/Frontend getrennt) | T010, T039 (durch Setup gewährleistet) |
 
 ---
 
-### ✅ T001 · Lastenheft v1.0 finalisieren und abgeben
+## Sprint-Übersicht (synchronisiert mit Pflichtenheft Abschnitt 13)
 
-**Was:** Letzte Korrekturen in das Lastenheft einarbeiten, Team-Review, als PDF im Sakai abgeben.
+| Epic | Bereich | Tasks | Voraussetzung | Sprint-Deadline | Pflichtenheft-Release |
+|------|---------|-------|---------------|-----------------|-----------------------|
+| E1 Spezifikation & Setup | Docs + Infra | T001–T009b | — | 30.04.2026 | — |
+| E2 DevOps & CI/CD       | Infra        | T010–T017 | E1 | 06.05.2026 | — |
+| E3 Auth-System          | Backend      | T018–T028 | E2 | 09.05.2026 | **MVP v0.1** |
+| E4 Bug-Verwaltung       | Backend      | T029–T038b | E3 | 16.05.2026 | **Beta v0.5** |
+| E5 Frontend Setup & Pages | Frontend   | T039–T055 | E3 | 16.05.2026 | **Beta v0.5** |
+| E6 Erweiterte Features  | Full-Stack   | T056–T062 | E4 + E5 | 20.05.2026 | **Release v1.0** |
+| E7 Tests & Quality      | Tests        | T063–T071 | E4 + E5 | 20.05.2026 | **Release v1.0** |
+| E8 Deployment           | DevOps       | T072–T078 | E6 + E7 | 21.05.2026 | **Release v1.0** |
+| E9 Präsentation & Bericht | Docs       | T079–T083 | E8 | 22.05.2026 | — |
 
-**Schritte:**
-1. Alle offenen Kommentare im Dokument klären
-2. Änderungshistorie aktualisieren
-3. Als PDF exportieren
-4. Im Sakai hochladen
-5. PDF-Version im Repo unter `/docs/` committen
+> **Anmerkung zur Sprintplanung:** Pflichtenheft Abschnitt 13 nennt einen MVP-Termin am 09.05.2026, der ursprünglich nur FA-01, FA-02, FA-03, FA-12 enthielt. In der überarbeiteten Planung wird der MVP-Stand auf "lauffähiges Auth-System mit DB-Anbindung" reduziert; die Bug-CRUD-Endpoints folgen in Beta v0.5 bis 16.05.2026. Falls der MVP-Termin im Pflichtenheft strikt eingehalten werden soll, müssten T031–T034 in E3 vorgezogen werden.
+
+---
+
+# E1: Spezifikation & Setup
+
+**Ziel:** Alle Dokumente und Werkzeuge fertig, bevor mit der Programmierung begonnen wird.
+**Deadline:** 30.04.2026
+
+---
+
+### ✅ T001 · Lastenheft v1.1 finalisieren und abgeben
+**Was:** Letzte Korrekturen einarbeiten, Team-Review, als PDF im Sakai abgeben.
 
 **Definition of Done:**
-- [ ] Lastenheft als PDF im Sakai abgegeben
-- [ ] Im Repo unter `/docs/lastenheft.pdf` versioniert
+- Lastenheft v1.1 als PDF im Sakai abgegeben
+- Im Repo unter `/docs/lastenheft.pdf` versioniert
 
 ---
 
-### T002 · Pflichtenheft v1.0 schreiben
+### ✅ T002 · Pflichtenheft v1.1 schreiben
+**Was:** Das Pflichtenheft beschreibt aus Sicht des Entwicklerteams, wie das Lastenheft umgesetzt wird.
 
-**Was:** Das Pflichtenheft beschreibt aus Sicht des Entwicklerteams, *wie* das Lastenheft umgesetzt wird. Es ist die größte Dokumentationsaufgabe in dieser Phase.
-
-**Inhalt des Pflichtenhefts:**
-- Systemarchitektur (Diagramm: Frontend → API → Backend → DB)
-- Datenmodell (ER-Diagramm)
-- API-Design (alle Endpoints mit Request/Response)
+**Inhalt:**
+- Systemarchitektur (siehe T005)
+- Datenmodell mit ER-/Klassendiagramm (siehe T003, T003b)
+- API-Design (siehe T004)
+- Use-Case-Übersicht (siehe T003a)
+- Sequenzdiagramm Bug anlegen (siehe T003c)
 - Akzeptanzkriterien je Anforderung (Gegeben/Wenn/Dann)
 - Technologieentscheidungen mit Begründung
 - Deployment-Konzept
 
-**Schritte:**
-1. Gliederung erstellen (orientiert an Vorlage)
-2. Architektur-Kapitel schreiben
-3. Datenmodell-Kapitel schreiben (ER-Diagramm einbetten)
-4. API-Kapitel schreiben (alle Endpoints)
-5. Akzeptanzkriterien je FA eintragen
-6. Review im Team
-7. Als PDF exportieren und abgeben
-
 **Definition of Done:**
-- [ ] Pflichtenheft als PDF im Sakai abgegeben
-- [ ] Alle Kapitel vollständig ausgefüllt
+- Pflichtenheft v1.1 als PDF im Sakai abgegeben
+- Alle 4 UML-Diagramme (Architektur, Use-Case, Klassendiagramm, Sequenzdiagramm) eingebettet
+- Anforderungs-IDs aus Lastenheft (FA-xx, NFA-xx, UC-xx) durchgehend referenziert
 
 ---
 
-### T003 · ER-Datenmodell zeichnen
-
+### ✅ T003 · ER-Datenmodell zeichnen
 **Was:** Entity-Relationship-Diagramm für alle Kern-Entitäten.
 
-**Entitäten:** `users`, `bugs`, `activities`, `comments`, `tags`
+**Entitäten:** users, bugs, activities, comments, tags
 
 **Beziehungen:**
 - User 1:N Bug (als Reporter)
 - User 1:N Bug (als Assignee, optional)
 - Bug 1:N Activity
 - Bug 1:N Comment (KANN)
-- Tag 1:N Bug
+- Tag 1:N Bug (optional)
 
-**Tools:** mermaid.js (im Markdown einbettbar) oder dbdiagram.io
+**Tools:** mermaid.js oder dbdiagram.io
 
 **Definition of Done:**
-- [ ] Diagramm als PNG/SVG im Repo unter `/docs/er-diagram.png`
-- [ ] Im Pflichtenheft eingebettet
+- Diagramm als PNG/SVG im Repo unter `/docs/diagrams/er-diagram.png`
+- In Pflichtenheft Abschnitt 6 eingebettet
 
 ---
 
-### T004 · OpenAPI-Spec für REST-API entwerfen
+### ✅ T003a · Use-Case-Diagramm erstellen *(neu)*
+**Was:** UML-Use-Case-Diagramm mit allen 3 Akteuren (Tester, Developer, Admin) und ihren Use Cases.
 
-**Was:** `openapi.yaml` mit allen Backend-Endpoints. Dient als Single Source of Truth zwischen Backend und Frontend — beide Seiten implementieren gegen diese Spec.
+**Anforderungen:**
+- Akteure mit Rollen-Vererbung (`«extends»`-Pfeile: Admin ⊂ Developer ⊂ Tester)
+- Use Cases farblich nach Rollenbereich gruppiert
+- Querverweise auf FA-IDs und UC-IDs aus dem Lastenheft
+
+**Tool:** draw.io oder Visual Paradigm Online
+
+**Definition of Done:**
+- Diagramm als PNG im Repo unter `/docs/diagrams/use-case-diagram.png`
+- Source-Datei (`.drawio`) ebenfalls committed
+- In Pflichtenheft Abschnitt 5.0 eingebettet
+
+---
+
+### ✅ T003b · Klassendiagramm erstellen *(neu)*
+**Was:** UML-Klassendiagramm des Datenmodells.
+
+**Klassen:** User, Bug, Activity, Tag, Comment
+
+**Wichtig:** `Activity`-Klasse mit Feldern `action`, `field`, `oldValue`, `newValue` (NICHT nur `content`!) — Konsistenz zum Datenbankschema in Pflichtenheft 6.4.
+
+**Definition of Done:**
+- Diagramm als PNG im Repo unter `/docs/diagrams/class-diagram.png`
+- Source-Datei (`.drawio`) ebenfalls committed
+- In Pflichtenheft Abschnitt 6.6 eingebettet
+
+---
+
+### ✅ T003c · Sequenzdiagramm „Bug anlegen" erstellen *(neu)*
+**Was:** UML-Sequenzdiagramm für UC-01 / FA-01.
+
+**Lifelines:** User → BugForm → ApiClient → BugController → BugService → BugDao → ActivityService → ActivityDao → PostgreSQL
 
 **Inhalt:**
-- Alle Endpoints (Auth, Bugs, Activities, Tags, Users, Comments)
-- Request-Bodies mit Typen und Validierungsregeln
-- Response-Schemas (Success + Error)
-- Sicherheitsschema (Session-Cookie)
-
-**Tool:** Swagger Editor (https://editor.swagger.io) zum Validieren
+- HTTP-Request mit Session-Cookie
+- `@Valid` und `@PreAuthorize`-Check
+- `@Transactional`-Loop (DB-Insert + Activity-Logging)
+- Alt-Frame für Validierungsfehler
 
 **Definition of Done:**
-- [ ] `openapi.yaml` validiert ohne Fehler
-- [ ] Im Repo unter `/docs/api/openapi.yaml`
+- Diagramm als PNG im Repo unter `/docs/diagrams/sequence-bug-create.png`
+- In Pflichtenheft Abschnitt 5.1 eingebettet
 
 ---
 
-### T005 · Architektur-Diagramm erstellen
+### ✅T004 · OpenAPI-Spec für REST-API entwerfen
+**Was:** `openapi.yaml` mit allen Backend-Endpoints. Single Source of Truth zwischen Backend und Frontend.
 
-**Was:** Visualisierung der Systemarchitektur für Pflichtenheft und Präsentation.
+**Inhalt:**
+- Auth-Endpoints (`/api/auth/login`, `/logout`, `/register`, `/me`)
+- Bug-Endpoints (`/api/bugs`, `/api/bugs/{id}`, `/{id}/status`, `/{id}/priority`, `/{id}/assignee`, `/{id}/restore`)
+- Activity-Endpoint (`/api/bugs/{id}/activities`)
+- Tag-Endpoints (`/api/tags`)
+- User-Endpoints (`/api/users`, `/api/users/{id}/role`)
+- Optional Comments (`/api/bugs/{id}/comments`)
+- Sicherheitsschema (Session-Cookie)
 
-**Inhalt:** Frontend → REST-API → Backend (Schichten) → DB + Auth-Flow
+**Tool:** Swagger Editor (https://editor.swagger.io)
 
 **Definition of Done:**
-- [ ] Diagramm als PNG/SVG im Repo
-- [ ] Im Pflichtenheft eingebettet
+- `openapi.yaml` validiert ohne Fehler
+- Im Repo unter `/docs/api/openapi.yaml`
+
+---
+
+### ✅ T005 · Architektur-Diagramm erstellen
+**Was:** Visualisierung der Systemarchitektur (3-Schichten).
+
+**Inhalt:** Browser → React SPA → REST/JSON → Spring Boot (Controller → Service → DAO) → JDBC → PostgreSQL · Spring Security als Cross-Cutting-Komponente
+
+**Definition of Done:**
+- Diagramm als PNG im Repo unter `/docs/diagrams/architecture.png`
+- In Pflichtenheft Abschnitt 4 eingebettet
 
 ---
 
 ### ✅ T006 · MoSCoW-Matrix in Excel finalisieren
-
-**Was:** `MoSCoWMatrixtemplate.xlsx` ausfüllen. Alle FA-IDs (FA-01 bis FA-16) in die Kategorien Muss / Soll / Kann / Won't einsortieren.
+**Was:** Alle FA-IDs (FA-01 bis FA-16) in die Kategorien Muss / Soll / Kann / Won't einsortieren.
 
 **Definition of Done:**
-- [ ] Alle 16 Anforderungen kategorisiert
-- [ ] Excel-Datei im Repo unter `/docs/moscow_matrix.xlsx`
+- Alle 16 Anforderungen kategorisiert
+- Excel-Datei im Repo unter `/docs/moscow_matrix.xlsx`
 
 ---
 
-### ✅ T007 · Neues GitHub-Repo aufsetzen (sauberer Stand)
-
-**Was:** Frisches Repository anlegen. Keinen Code aus dem alten KI-generierten Stand übernehmen.
+### ✅ T007 · Neues GitHub-Repo aufsetzen
+**Was:** Frisches Repository ohne KI-generierten Altcode.
 
 **Schritte:**
-1. Neues Repo auf GitHub anlegen: `bug-tracker`
-2. Alle 5 Teammitglieder als Collaborator hinzufügen
-3. Branch-Schutzregeln für `main` und `develop` aktivieren (siehe T009)
-4. Grundstruktur anlegen: `/backend`, `/frontend`, `/docs`
-5. `.gitignore` und `.gitattributes` anlegen (siehe T016)
-6. Ersten Commit pushen
+- Repo `bug-tracker` auf GitHub anlegen
+- Alle 5 Teammitglieder als Collaborator
+- Branch-Schutzregeln (siehe T009)
+- Grundstruktur: `/backend`, `/frontend`, `/docs`
 
 **Definition of Done:**
-- [ ] Repo auf GitHub erstellt
-- [ ] Alle Teammitglieder als Collaborator
-- [ ] Branch-Schutz für `main` + `develop` aktiviert
+- Repo erstellt, Team eingeladen, Branch-Schutz aktiv
 
 ---
 
 ### ✅ T008 · Jira-Board einrichten + Backlog importieren
-
-**Was:** Jira-Projekt anlegen, CSV-Import durchführen, Epic-Zuordnungen prüfen.
-
-**Schritte:**
-1. Neues Jira-Projekt erstellen (Typ: Software / Scrum)
-2. CSV-Datei `jira_backlog_bugtracker_v8.csv` importieren
-3. Feld-Zuordnungen prüfen: Issue Type, Summary, Description, Priority, Labels, Parent
-4. Epic-Hierarchie prüfen (Tasks sollen unter Epics erscheinen)
-5. Alle Teammitglieder einladen
+**Was:** Jira-Projekt anlegen, CSV importieren, Epic-Hierarchie prüfen.
 
 **Definition of Done:**
-- [ ] Alle 83 Tasks importiert
-- [ ] Epic-Zuordnungen korrekt
-- [ ] Alle Teammitglieder im Board
+- Alle 92 Tasks importiert (in dieser Version inkl. Ergänzungen)
+- Epic-Zuordnungen korrekt
+- Alle Teammitglieder im Board
 
 ---
 
 ### ✅ T009 · Branch-Protection-Rules definieren
-
-**Was:** Schutzregeln für die Haupt-Branches konfigurieren.
+**Was:** Schutzregeln für `main` und `develop`.
 
 **Regeln:**
-- `main`: Nur Releases; direkter Push verboten; nur über PR mit mind. 1 approved Review
-- `develop`: Laufende Integration; direkter Push verboten; nur über PR
-- Feature-Branches: Format `feature/T0XX-kurzbeschreibung`
-- CI-Pipeline muss grün sein bevor Merge möglich
-
-**Definition of Done:**
-- [ ] Branch-Schutz für `main` in GitHub aktiviert
-- [ ] Branch-Schutz für `develop` in GitHub aktiviert
-- [ ] PR-Reviewer-Anforderung: mind. 1 Person
+- `main`: Nur Releases; direkter Push verboten; nur via PR mit ≥ 1 Approval
+- `develop`: Laufende Integration; nur via PR
+- Feature-Branches: `feature/T0XX-kurzbeschreibung`
+- CI grün als Merge-Voraussetzung
 
 ---
 
-## E2: DevOps & CI/CD
+### T009b · Anforderungs-Mapping-Tabelle pflegen *(neu)*
+**Was:** Die FA → Task-Mapping-Tabelle (oben in dieser Datei) wird über das gesamte Projekt aktuell gehalten.
 
-> **Ziel:** Build- und Test-Automatisierung — jeder Pull Request wird automatisch geprüft.  
-> **Voraussetzung:** E1 abgeschlossen  
-> **Deadline:** 06.05.2026
+**Verantwortlich:** Wer einen Task fertigstellt, prüft, ob die Mapping-Tabelle stimmt.
+
+**Definition of Done:**
+- Bei jedem Pull Request, der einen FA implementiert, wird in der PR-Beschreibung die FA-ID genannt
+- Im Projektbericht (T082) wird diese Tabelle aufgeführt
+
+---
+
+# E2: DevOps & CI/CD
+
+**Ziel:** Build- und Test-Automatisierung — jeder Pull Request wird automatisch geprüft.
+**Voraussetzung:** E1 abgeschlossen
+**Deadline:** 06.05.2026
 
 ---
 
 ### ✅ T010 · Maven-Projekt-Setup mit Spring Boot 3.x
-
-**Was:** `pom.xml` mit allen benötigten Dependencies erstellen. Grundstruktur des Backend-Projekts anlegen.
+**Was:** `pom.xml` mit allen Dependencies erstellen.
 
 **Dependencies:**
-```xml
-spring-boot-starter-web
-spring-boot-starter-security
-spring-boot-starter-data-jdbc
-spring-boot-starter-validation
-flyway-core
-flyway-database-postgresql
-springdoc-openapi-starter-webmvc-ui
-spring-boot-starter-actuator
-bcrypt (spring-security-crypto ist bereits enthalten)
-postgresql (JDBC-Treiber)
-junit-jupiter
-mockito-core
-spring-boot-starter-test
-```
+- `spring-boot-starter-web`
+- `spring-boot-starter-security`
+- `spring-boot-starter-data-jdbc`
+- `spring-boot-starter-validation`
+- `flyway-core`, `flyway-database-postgresql`
+- `springdoc-openapi-starter-webmvc-ui`
+- `spring-boot-starter-actuator`
+- `postgresql` (JDBC-Treiber)
+- Test: `junit-jupiter`, `mockito-core`, `spring-boot-starter-test`
+
+> **Hinweis:** Bewusst KEINE `spring-session-jdbc`-Abhängigkeit — Sessions werden in-memory verwaltet (Standard von Spring Security). Kein eigener `spring_session`-Tabelle in der DB.
 
 **Definition of Done:**
-- [ ] `mvn clean install` läuft fehlerfrei
-- [ ] Alle Dependencies aufgelöst
-- [ ] Spring Boot startet ohne Fehler
+- `mvn clean install` läuft fehlerfrei
+- Spring Boot startet ohne Fehler
 
 ---
 
 ### ✅ T011 · Docker-Compose für PostgreSQL (Dev)
-
-**Was:** `docker-compose.yml` im Repo-Root, der eine PostgreSQL-Instanz für die lokale Entwicklung startet.
+**Was:** `docker-compose.yml` startet PostgreSQL für lokale Entwicklung.
 
 ```yaml
-# Beispiel-Struktur
 services:
   postgres:
     image: postgres:16
@@ -244,144 +311,63 @@ services:
 ```
 
 **Definition of Done:**
-- [ ] `docker-compose up -d` startet PostgreSQL fehlerfrei
-- [ ] Backend kann sich mit der DB verbinden
+- `docker-compose up -d` startet PostgreSQL fehlerfrei
+- Backend kann sich verbinden
 
 ---
 
 ### T012 · Dockerfile für Backend
-
-**Was:** Multi-Stage Dockerfile für das Backend.
-
-```dockerfile
-# Stage 1: Build
-FROM maven:3.9-eclipse-temurin-21 AS builder
-# Stage 2: Runtime
-FROM eclipse-temurin:21-jre
-```
+**Was:** Multi-Stage Dockerfile.
 
 **Anforderungen:** Image-Größe < 300 MB
 
 **Definition of Done:**
-- [ ] `docker build` erfolgreich
-- [ ] Image < 300 MB
-- [ ] Container startet die Spring Boot App fehlerfrei
+- `docker build` erfolgreich
+- Image < 300 MB
+- Container startet die Spring Boot App
 
 ---
 
-### T013 · GitHub Actions CI Pipeline (Backend)
-
-**Was:** GitHub Actions Workflow, der auf jeden Pull Request automatisch die Backend-Tests ausführt.
-
+### ✅ T013 · GitHub Actions CI Pipeline (Backend)
 **Datei:** `.github/workflows/ci-backend.yml`
 
-**Pipeline-Schritte:**
-1. Checkout
-2. Java 21 Setup
-3. PostgreSQL Service starten (GitHub Actions Service Container)
-4. `mvn test`
-5. Bei Fehler: PR kann nicht gemerged werden
-
-**Definition of Done:**
-- [ ] Pipeline wird auf jeden PR gegen `develop` und `main` ausgelöst
-- [ ] Fehlerhafte Tests blockieren den Merge
+**Pipeline:** Checkout → Java 21 → PostgreSQL Service → `mvn test` → Fail blockiert Merge
 
 ---
 
 ### T014 · GitHub Actions CI Pipeline (Frontend)
-
-**Was:** GitHub Actions Workflow für das Frontend.
-
 **Datei:** `.github/workflows/ci-frontend.yml`
 
-**Pipeline-Schritte:**
-1. Checkout
-2. Node.js 20 Setup
-3. `npm install`
-4. `npm run lint` (ESLint)
-5. `npm run typecheck` (TypeScript-Compiler)
-6. `npm run build` (Vite)
-
-**Definition of Done:**
-- [ ] Pipeline wird auf jeden PR ausgelöst
-- [ ] ESLint-Fehler und TypeScript-Fehler blockieren den Merge
+**Pipeline:** Checkout → Node 20 → `npm install` → `npm run lint` → `npm run typecheck` → `npm run build`
 
 ---
 
-### T015 · README.md mit Setup-Anleitung
-
-**Was:** Schritt-für-Schritt-Anleitung für neue Entwickler. Ziel: Ein neues Teammitglied kann in weniger als 15 Minuten lokal starten.
+### ✅ T015 · README.md mit Setup-Anleitung
+**Ziel:** Neues Teammitglied kann in unter 15 Minuten lokal starten.
 
 **Inhalt:** Voraussetzungen, Klonen, DB starten, Backend starten, Frontend starten, Tests ausführen.
-
-**Definition of Done:**
-- [ ] README im Repo-Root vorhanden
-- [ ] Setup funktioniert nach Anleitung von Grund auf
 
 ---
 
 ### ✅ T016 · .gitignore + .gitattributes konfigurieren
-
-**Was:** Verhindert, dass Build-Artefakte und IDE-Dateien ins Repo kommen.
-
-**`.gitignore` enthält mindestens:**
-```
-# Backend
-target/
-*.class
-*.jar
-
-# Frontend
-node_modules/
-dist/
-
-# IDE
-.idea/
-.vscode/
-*.iml
-
-# Environment
-.env
-.env.local
-application-prod.yml
-```
-
-**`.gitattributes`:** Sorgt für konsistente LF Line-Endings über alle Betriebssysteme.
-
-**Definition of Done:**
-- [ ] `target/` und `node_modules/` sind nicht im Repo
-- [ ] `.gitattributes` mit LF-Konfiguration vorhanden
+**Inhalte:** `target/`, `node_modules/`, `dist/`, IDE-Folder, `.env` ausschließen · LF-Konfiguration für plattformübergreifende Konsistenz.
 
 ---
 
-### T017 · CONTRIBUTING.md schreiben
-
-**Was:** Dokumentiert die Entwicklungskonventionen für alle Teammitglieder.
-
-**Inhalt:**
-- Branching-Strategie (main / develop / feature/xxx)
-- Conventional Commits Format mit Beispielen
-- PR-Template (Was wurde geändert? Welche Tests wurden hinzugefügt?)
-- Code-Review-Erwartungen (mind. 1 Reviewer, kein Merge ohne grüne CI)
-
-**Definition of Done:**
-- [ ] `CONTRIBUTING.md` im Repo-Root
-- [ ] PR-Template als `.github/pull_request_template.md`
+### ✅ T017 · CONTRIBUTING.md schreiben
+**Inhalt:** Branching-Strategie, Conventional Commits, PR-Template, Code-Review-Erwartungen.
 
 ---
 
-## E3: Auth-System
+# E3: Auth-System
 
-> **Ziel:** User können sich registrieren, einloggen und ausloggen. Sessions werden per Cookie verwaltet.  
-> **Voraussetzung:** E2 abgeschlossen  
-> **Deadline:** 06.05.2026
+**Ziel:** User können sich registrieren, einloggen und ausloggen. Sessions per Cookie.
+**Voraussetzung:** E2 abgeschlossen
+**Deadline:** 09.05.2026 *(MVP v0.1 laut Pflichtenheft)*
 
 ---
 
 ### T018 · Spring Boot Projekt initialisieren
-
-**Was:** `Application.java` anlegen und die Package-Struktur aufbauen.
-
 **Package-Struktur:**
 ```
 at.mci.bugtracker/
@@ -394,16 +380,11 @@ at.mci.bugtracker/
 └── auth/
 ```
 
-**Definition of Done:**
-- [ ] Anwendung startet fehlerfrei mit `mvn spring-boot:run`
-- [ ] Alle Packages angelegt und committed
+**Definition of Done:** `mvn spring-boot:run` startet fehlerfrei.
 
 ---
 
-### T019 · Flyway Setup + V1-Migration (User + Sessions)
-
-**Was:** Flyway konfigurieren und die erste SQL-Migration schreiben.
-
+### T019 · Flyway Setup + V1-Migration (User)
 **Datei:** `src/main/resources/db/migration/V1__init.sql`
 
 ```sql
@@ -412,211 +393,160 @@ CREATE TABLE users (
     username      VARCHAR(50) UNIQUE NOT NULL,
     email         VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role          VARCHAR(20) NOT NULL DEFAULT 'TESTER',
+    role          VARCHAR(20) NOT NULL DEFAULT 'TESTER'
+                  CHECK (role IN ('TESTER','DEVELOPER','ADMIN')),
+    active        BOOLEAN NOT NULL DEFAULT TRUE,
     created_at    TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE spring_session (
-    -- Spring Security Session-Tabelle (wird automatisch verwaltet)
 );
 ```
 
+> **Korrigiert gegenüber v1.0:** Keine `spring_session`-Tabelle. Sessions liegen in-memory (Standard Spring Security, vgl. T010-Hinweis).
+
 **Definition of Done:**
-- [ ] Flyway-Migration läuft fehlerfrei beim Backend-Start
-- [ ] Tabellen in der DB vorhanden (prüfbar via psql oder DBeaver)
+- Migration läuft beim Backend-Start
+- `users`-Tabelle in der DB vorhanden
+- CHECK-Constraint auf `role` verhindert ungültige Rollen
 
 ---
 
 ### T020 · User-Model + UserDao
-
-**Was:** Java Record für den User und ein DAO für Datenbankzugriffe.
-
-```java
-// Beispiel
-public record User(Long id, String username, String email,
-                   String passwordHash, UserRole role, LocalDateTime createdAt) {}
-
-public class UserDao {
-    // findById, findByUsername, findByEmail, save, updateRole, findAll
-}
-```
+**Was:** Java Record `User` und DAO mit Methoden `findById`, `findByUsername`, `findByEmail`, `save`, `updateRole`, `findAll`.
 
 **Definition of Done:**
-- [ ] Unit-Tests für alle UserDao-Methoden grün
-- [ ] Kein Klartext-Passwort wird jemals gespeichert
+- Unit-Tests für alle UserDao-Methoden grün
+- Klartext-Passwörter werden nie gespeichert oder geloggt
 
 ---
 
 ### T021 · Spring Security Konfiguration
-
-**Was:** `SecurityConfig.java` — Session-basierte Auth konfigurieren.
+**Was:** `SecurityConfig.java` — Session-basierte Auth.
 
 **Anforderungen:**
-- Public (kein Login nötig): `POST /api/auth/login`, `POST /api/auth/register`
-- Geschützt (Login erforderlich): alle anderen `/api/**` Endpoints
+- Public: `POST /api/auth/login`, `POST /api/auth/register`
+- Geschützt: alle anderen `/api/**`
 - Session-Management: `SessionCreationPolicy.IF_REQUIRED`
-- CSRF: für REST-API deaktivieren (wir verwenden SameSite Cookies)
+- Password-Encoder: `BCryptPasswordEncoder` (cost 10)
+
+> **CSRF-Hinweis (Diskrepanz zum Pflichtenheft NFA-07):**
+> Pflichtenheft NFA-07 nennt "CSRF-Schutz aktiv". Da wir aber Session-Cookies mit `SameSite=Lax` und einem dedizierten REST-API-Frontend nutzen, ist der klassische CSRF-Token-Mechanismus nicht zwingend notwendig — Spring empfiehlt CSRF-Schutz primär für formularbasierte HTML-Anwendungen.
+>
+> **Entscheidung:** CSRF-Schutz wird für `/api/**`-Endpoints aktiviert (Standard-Spring-Verhalten via `CookieCsrfTokenRepository.withHttpOnlyFalse()`). Frontend muss das CSRF-Token aus dem Cookie lesen und im `X-XSRF-TOKEN`-Header mitsenden. Login- und Register-Endpoints werden vom CSRF-Schutz ausgenommen.
+>
+> Falls dieses Konzept zu komplex erscheint: Alternativ CSRF deaktivieren und im Pflichtenheft NFA-07 die Formulierung anpassen auf "Schutz vor CSRF durch SameSite-Cookies + CORS-Konfiguration".
 
 **Definition of Done:**
-- [ ] `GET /api/bugs` ohne Login → HTTP 401
-- [ ] `POST /api/auth/login` ohne Auth erreichbar
+- `GET /api/bugs` ohne Login → HTTP 401
+- `POST /api/auth/login` ohne Auth erreichbar
+- CSRF-Verhalten dokumentiert (entweder aktiv mit Frontend-Anpassung oder dokumentiert deaktiviert)
+
+---
+
+### T021b · @PreAuthorize-Annotationen auf Controllern *(neu — FA-15)*
+**Was:** Methoden-Level-Security mit `@EnableMethodSecurity`.
+
+**Beispiel:**
+```java
+@PreAuthorize("hasRole('ADMIN')")
+@DeleteMapping("/api/tags/{id}")
+public ResponseEntity<Void> deleteTag(@PathVariable Long id) { ... }
+
+@PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
+@PutMapping("/api/bugs/{id}")
+public ResponseEntity<Bug> updateBug(...) { ... }
+```
+
+**Rollen-Matrix (vgl. Pflichtenheft 9.3):**
+| Rolle      | Zugriff |
+|------------|---------|
+| TESTER     | FA-01, FA-02, FA-03, FA-09, FA-10, FA-11 |
+| DEVELOPER  | + FA-04, FA-05, FA-06, FA-07, FA-08, FA-14 |
+| ADMIN      | + FA-15, FA-16 |
+
+**Definition of Done:**
+- Alle Endpoints mit passendem `@PreAuthorize` annotiert
+- Integration-Tests prüfen Zugriffskontrolle (TESTER versucht Tag-Delete → HTTP 403)
 
 ---
 
 ### T022 · CORS-Konfiguration für React-Frontend
+**Was:** `CorsConfig.java` — Cross-Origin-Requests vom Frontend erlauben.
 
-**Was:** `CorsConfig.java` — Backend erlaubt Cross-Origin-Requests vom Frontend.
-
-**Konfiguration:**
-```java
+```
 allowedOrigins: ["http://localhost:5173", "${app.cors.allowed-origin}"]
 allowedMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 allowCredentials: true   // wichtig für Session-Cookies
-allowedHeaders: ["*"]
+allowedHeaders: ["*", "X-XSRF-TOKEN"]
+exposedHeaders: ["X-XSRF-TOKEN"]
 ```
-
-**Definition of Done:**
-- [ ] Frontend-Requests von `localhost:5173` funktionieren
-- [ ] Session-Cookie wird korrekt gesetzt und bei Folgeanfragen mitgesendet
 
 ---
 
 ### T023 · POST /api/auth/login Endpoint
+**Request:** `{ "username": "marie", "password": "secret123" }`
+**Response (Erfolg):** HTTP 200 + User-Daten + Session-Cookie
+**Response (Fehler):** HTTP 401 + `{ "error": "Login fehlgeschlagen" }` (kein Hinweis ob Username existiert)
 
-**Was:** Login-Endpoint.
-
-**Request:**
-```json
-{ "username": "marie", "password": "secret123" }
-```
-
-**Response (Erfolg):** HTTP 200 + User-Daten + Session-Cookie gesetzt  
-**Response (Fehler):** HTTP 401 + `{ "error": "Login fehlgeschlagen" }` — KEIN Hinweis ob Username existiert
-
-**Implementiert:** US-12 AC1 (erfolgreicher Login) + AC2 (Fehlermeldung)
-
-**Definition of Done:**
-- [ ] Korrektes Login → HTTP 200 + Cookie
-- [ ] Falsches Login → HTTP 401, kein Stack-Trace, kein Hinweis auf Username
+**Implementiert:** US-12 AC1 + AC2
 
 ---
 
 ### T024 · POST /api/auth/logout Endpoint
-
-**Was:** Logout-Endpoint — invalidiert die Session und löscht das Cookie.
-
-**Response:** HTTP 200, Session-Cookie gelöscht
-
-**Implementiert:** US-12 AC3
-
-**Definition of Done:**
-- [ ] Nach Logout: Session ungültig, geschützte Endpoints → HTTP 401
+**Was:** Invalidiert Session, löscht Cookie. **Implementiert:** US-12 AC3.
 
 ---
 
 ### T025 · POST /api/auth/register Endpoint
-
-**Was:** Selbst-Registrierung.
-
-**Request:**
-```json
-{
-  "username": "tom",
-  "email": "tom@example.com",
-  "password": "secret123",
-  "passwordConfirm": "secret123"
-}
-```
-
 **Validierungen:**
 - Username: eindeutig, 3–50 Zeichen
 - Email: valides Format, eindeutig
 - Passwort: mind. 8 Zeichen
-- passwordConfirm: muss mit password übereinstimmen
+- `passwordConfirm` muss übereinstimmen
 
-**Default-Rolle:** `TESTER`
-
-**Implementiert:** US-13 (alle 5 AC)
-
-**Definition of Done:**
-- [ ] Erfolgreiche Registrierung → Auto-Login + HTTP 201
-- [ ] Doppelter Username → HTTP 409
-- [ ] Kurzes Passwort → HTTP 400
+**Default-Rolle:** TESTER · **Implementiert:** US-13 (alle 5 AC)
 
 ---
 
 ### T026 · GET /api/auth/me Endpoint
-
-**Was:** Gibt dem Frontend Infos über den eingeloggten User zurück.
-
-**Response (eingeloggt):**
-```json
-{ "id": 1, "username": "marie", "email": "marie@example.com", "role": "DEVELOPER" }
-```
-**Response (nicht eingeloggt):** HTTP 401
-
-**Verwendung im Frontend:** Beim App-Start aufgerufen, um die Session zu prüfen (Session-Persistenz nach Page-Reload).
+**Was:** Gibt eingeloggten User zurück, im Frontend bei App-Start für Session-Persistenz aufgerufen.
 
 **Implementiert:** US-12 AC4 + AC5
-
-**Definition of Done:**
-- [ ] Eingeloggte Session → HTTP 200 mit User-Daten
-- [ ] Keine Session → HTTP 401
 
 ---
 
 ### T027 · Password-Hashing mit BCrypt
+**Was:** Helper `PasswordHasher` mit `hash()` und `verify()`.
 
-**Was:** Helper-Klasse `PasswordHasher` für sicheres Passwort-Hashing.
-
-```java
-public class PasswordHasher {
-    public String hash(String plaintext) { ... }        // BCrypt, cost 10
-    public boolean verify(String plain, String hash) { ... }
-}
-```
-
-**Anforderungen:**
-- Cost factor: mind. 10
-- Niemals Klartext-Passwörter speichern oder loggen
+**Anforderungen:** Cost factor ≥ 10 · Niemals Klartext speichern oder loggen
 
 **Definition of Done:**
-- [ ] Unit-Tests für hash() und verify() grün (mind. 3 Test-Cases)
-- [ ] Coverage 100% für PasswordHasher-Klasse
+- Unit-Tests grün (mind. 3 Cases)
+- 100% Coverage für `PasswordHasher`
 
 ---
 
 ### T028 · GlobalExceptionHandler
-
 **Was:** `@ControllerAdvice` für einheitliche Fehlerantworten.
 
-**Mappings:**
-| Exception | HTTP-Status | Response |
-|-----------|-------------|----------|
-| `MethodArgumentNotValidException` | 400 | Feld-spezifische Fehler |
-| `UsernameNotFoundException` | 401 | `{ "error": "Login fehlgeschlagen" }` |
-| `InvalidStatusTransitionException` | 400 | `{ "error": "Ungültiger Statuswechsel" }` |
-| `EntityNotFoundException` | 404 | `{ "error": "Nicht gefunden" }` |
-| `Exception` (Fallback) | 500 | `{ "error": "Interner Fehler" }` — KEIN Stack-Trace |
-
-**Definition of Done:**
-- [ ] Alle definierten Fehlerfälle liefern korrekten HTTP-Status
-- [ ] Kein Stack-Trace je im Response-Body sichtbar
+| Exception | HTTP | Response |
+|-----------|------|----------|
+| MethodArgumentNotValidException | 400 | Feld-spezifische Fehler |
+| UsernameNotFoundException | 401 | `{ "error": "Login fehlgeschlagen" }` |
+| InvalidStatusTransitionException | 400 | `{ "error": "Ungültiger Statuswechsel" }` |
+| AccessDeniedException | 403 | `{ "error": "Keine Berechtigung" }` |
+| EntityNotFoundException | 404 | `{ "error": "Nicht gefunden" }` |
+| Exception (Fallback) | 500 | `{ "error": "Interner Fehler" }` — KEIN Stack-Trace |
 
 ---
 
-## E4: Bug-Verwaltung
+# E4: Bug-Verwaltung
 
-> **Ziel:** Backend-API für alle Bug-CRUD-Operationen. Das Herzstück der Anwendung.  
-> **Voraussetzung:** E3 abgeschlossen  
-> **Deadline:** 13.05.2026
+**Ziel:** Backend-API für alle Bug-CRUD-Operationen + Tags + Admin-User-Mgmt.
+**Voraussetzung:** E3 abgeschlossen
+**Deadline:** 16.05.2026 *(Beta v0.5)*
 
 ---
 
 ### T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle
-
-**Was:** SQL-Migration für Bugs und Tags.
-
 **Datei:** `V2__bugs.sql`
 
 ```sql
@@ -642,36 +572,38 @@ CREATE TABLE bugs (
     created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Standard-Tags für Demo
+INSERT INTO tags (name, color) VALUES
+    ('Backend', '#3B82F6'),
+    ('Frontend', '#10B981'),
+    ('Bug', '#EF4444'),
+    ('Feature', '#8B5CF6');
 ```
 
 **Definition of Done:**
-- [ ] Migration läuft fehlerfrei
-- [ ] Enum-Constraints aktiv (falsche Werte werden abgelehnt)
+- Migration läuft fehlerfrei
+- Enum-Constraints aktiv
+- Standard-Tags vorhanden
 
 ---
 
 ### T030 · Bug-Model + BugDao
-
-**Was:** Java Record für Bug + DAO für alle Datenbankoperationen.
+**Was:** Java Record `Bug` + DAO.
 
 **BugDao-Methoden:**
-- `findAll(BugFilter filter, int page)` — mit Status/Priority/Assignee/Search-Filter + Pagination
+- `findAll(BugFilter filter, int page)` — mit Status/Priority/Assignee/Tag/Search-Filter + Pagination
 - `findById(Long id)` — mit JOIN auf users (Reporter, Assignee) und tags
-- `save(Bug bug)` — Insert
-- `update(Bug bug)` — Update
-- `archive(Long id)` — setzt archived=true
-- `restore(Long id)` — setzt archived=false
+- `save(Bug bug)`, `update(Bug bug)`
+- `archive(Long id)` / `restore(Long id)`
 
 **Definition of Done:**
-- [ ] Unit-Tests für alle BugDao-Methoden grün
-- [ ] Filter-Kombinationen getestet
+- Unit-Tests für alle Methoden grün
+- Filter-Kombinationen getestet
 
 ---
 
-### T031 · POST /api/bugs Endpoint
-
-**Was:** Neuen Bug anlegen.
-
+### T031 · POST /api/bugs Endpoint *(FA-01)*
 **Request:**
 ```json
 {
@@ -682,430 +614,328 @@ CREATE TABLE bugs (
 }
 ```
 
-**Verhalten:**
-- Reporter = eingeloggter User (automatisch gesetzt)
-- Default-Status: `NEU`
-- Default-Priorität: `MITTEL` wenn nicht angegeben
-- Default-Tag: falls tagId null, wird Standard-Tag gesetzt (falls vorhanden)
+**Verhalten:** Reporter = eingeloggter User · Default-Status NEU · Default-Priorität MITTEL
 
 **Implementiert:** US-01 (alle 6 AC)
 
-**Definition of Done:**
-- [ ] Neuer Bug erscheint in der Liste
-- [ ] Pflichtfeld-Validierung funktioniert
-- [ ] Reporter wird automatisch gesetzt
-
 ---
 
-### T032 · GET /api/bugs Endpoint
-
-**Was:** Bug-Liste mit Filterung und Pagination.
-
-**Query-Parameter:**
-- `status` (multi): z.B. `?status=NEU&status=IN_BEARBEITUNG`
-- `priority`: z.B. `?priority=HOCH`
-- `assigneeId`: z.B. `?assigneeId=3`
-- `search`: z.B. `?search=login` (case-insensitive Suche in title)
-- `page`: z.B. `?page=0` (50 Bugs pro Seite)
-- `archived`: `?archived=true` für Archiv-Ansicht (Default: false)
+### T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
+**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagId`, `search`, `page`, `archived`
 
 **Response:**
 ```json
-{
-  "bugs": [...],
-  "total": 73,
-  "page": 0,
-  "pageSize": 50
-}
+{ "bugs": [...], "total": 73, "page": 0, "pageSize": 50 }
 ```
 
-**Implementiert:** US-02 + US-09
+---
 
-**Definition of Done:**
-- [ ] Alle Filter-Parameter funktionieren
-- [ ] Archivierte Bugs standardmäßig ausgeblendet
-- [ ] Pagination korrekt
+### T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
+**Response:** Alle Bug-Felder + reporterName + assigneeName + tagName
 
 ---
 
-### T033 · GET /api/bugs/{id} Endpoint
+### T034 · PUT /api/bugs/{id} Endpoint *(FA-04)*
+**Was:** Bug bearbeiten (Titel, Beschreibung — Priorität via separatem PATCH, siehe T036b).
 
-**Was:** Einzelnen Bug mit allen Details abrufen.
-
-**Response enthält:** Alle Bug-Felder + `reporterName` + `assigneeName` + `tagName`
-
-**Fehlerfall:** HTTP 404 wenn Bug nicht existiert
-
-**Implementiert:** US-03
-
-**Definition of Done:**
-- [ ] Alle Felder inkl. JOIN-Daten im Response
-- [ ] HTTP 404 bei nicht existierendem Bug
+**Verhalten:** Erzeugt Activity-Einträge für jedes geänderte Feld.
 
 ---
 
-### T034 · PUT /api/bugs/{id} Endpoint
-
-**Was:** Bug bearbeiten (Titel, Beschreibung, Priorität).
-
-**Request:**
-```json
-{ "title": "Neuer Titel", "description": "Neue Beschreibung", "priority": "KRITISCH" }
-```
-
-**Verhalten:** Erzeugt automatisch Activity-Einträge für jedes geänderte Feld.
-
-**Implementiert:** US-04 (alle 5 AC)
-
-**Definition of Done:**
-- [ ] Geänderte Werte in DB persistiert
-- [ ] Activity-Einträge werden erzeugt
-- [ ] Leerer Titel → HTTP 400
+### T035 · Soft-Delete + Reaktivierung *(FA-05)*
+- `DELETE /api/bugs/{id}`: setzt `archived = true`
+- `PATCH /api/bugs/{id}/restore`: setzt `archived = false`
 
 ---
 
-### T035 · Soft-Delete + Reaktivierung
-
-**Was:** Archivieren und Reaktivieren eines Bugs.
-
-**DELETE `/api/bugs/{id}`:** Setzt `archived = true` — physisches Löschen ist nicht vorgesehen.  
-**PATCH `/api/bugs/{id}/restore`:** Setzt `archived = false`.
-
-**Implementiert:** US-05 (alle 5 AC)
-
-**Definition of Done:**
-- [ ] Archivierter Bug verschwindet aus Standardliste
-- [ ] Reaktivierung funktioniert
-- [ ] Bug existiert nach Archivierung weiterhin in der DB
-
----
-
-### T036 · PATCH /api/bugs/{id}/status Endpoint
-
-**Was:** Status-Wechsel mit State-Machine-Validierung.
-
-**Request:** `{ "status": "IN_BEARBEITUNG" }`
-
+### T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
 **State-Machine (erlaubte Übergänge):**
-```
-NEU → IN_BEARBEITUNG
-IN_BEARBEITUNG → IM_REVIEW
-IM_REVIEW → ERLEDIGT
-IM_REVIEW → IN_BEARBEITUNG
-NEU/IN_BEARBEITUNG/IM_REVIEW/ERLEDIGT → ABGELEHNT
-ALLE → ARCHIVIERT
-```
+- `NEU → IN_BEARBEITUNG, ABGELEHNT`
+- `IN_BEARBEITUNG → IM_REVIEW, ABGELEHNT`
+- `IM_REVIEW → ERLEDIGT, IN_BEARBEITUNG, ABGELEHNT`
+- `ERLEDIGT → ARCHIVIERT`
+- `ABGELEHNT → ARCHIVIERT`
+- Alle Status `→ ARCHIVIERT`
 
 **Verbotener Übergang:** HTTP 400 + `{ "error": "Ungültiger Statuswechsel von ERLEDIGT zu NEU" }`
 
-**Implementiert:** US-06 (alle 4 AC)
-
-**Definition of Done:**
-- [ ] Alle erlaubten Übergänge funktionieren
-- [ ] Verbotene Übergänge → HTTP 400
-- [ ] Activity-Eintrag wird erzeugt
+**Implementation:** Eigene Service-Klasse `StatusTransitionValidator` (siehe T065 Unit-Test).
 
 ---
 
-### T037 · PATCH /api/bugs/{id}/assignee Endpoint
+### T036b · PATCH /api/bugs/{id}/priority Endpoint *(neu — FA-07)*
+**Was:** Eigener Endpoint für Prioritätsänderung (gemäß Pflichtenheft 5.7).
 
-**Was:** Bearbeiter zuweisen oder entfernen.
+**Request:** `{ "priority": "KRITISCH" }`
 
-**Request:** `{ "assigneeId": 3 }` oder `{ "assigneeId": null }` für "Kein Bearbeiter"
+**Validierung:** Eindeutiger gültiger Wert: `NIEDRIG`, `MITTEL`, `HOCH`, `KRITISCH`
 
-**Validierung:** User muss existieren (HTTP 404 sonst)
+**Verhalten:**
+- Erzeugt Activity-Eintrag (FA-14)
+- Default beim Erstellen ist `MITTEL`
 
-**Implementiert:** US-08 (alle 4 AC)
+**Implementiert:** US-07 (alle 5 AC, vgl. Pflichtenheft 5.7)
 
 **Definition of Done:**
-- [ ] Zuweisung wird gespeichert
-- [ ] `assigneeId: null` entfernt Bearbeiter
-- [ ] Activity-Eintrag wird erzeugt
+- Erfolg: HTTP 200
+- Ungültiger Wert: HTTP 400
+- Activity-Eintrag in DB
+
+---
+
+### T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
+**Request:** `{ "assigneeId": 3 }` oder `{ "assigneeId": null }` (entfernt Bearbeiter)
+
+**Validierung:** User muss existieren (HTTP 404 sonst)
 
 ---
 
 ### T038 · Bean-Validation für alle Request-Bodies
-
-**Was:** Jakarta Validation Annotations auf alle Request-DTOs.
-
 **Beispiel:**
 ```java
 public record CreateBugRequest(
-    @NotBlank(message = "Titel ist erforderlich")
-    @Size(max = 255)
-    String title,
-
-    @NotBlank(message = "Beschreibung ist erforderlich")
-    String description,
-
-    String priority
+    @NotBlank(message = "Titel ist erforderlich") @Size(max = 255) String title,
+    @NotBlank(message = "Beschreibung ist erforderlich") String description,
+    String priority,
+    Long tagId
 ) {}
 ```
 
+---
+
+### T038a · Tag-CRUD Backend *(neu — FA-16)*
+**Was:** Vollständige CRUD-API für Tags (nur ADMIN).
+
+**Endpoints:**
+| Methode | URL | Beschreibung | Rolle |
+|---------|-----|--------------|-------|
+| `GET`    | `/api/tags`         | Alle Tags abrufen (für Dropdown) | alle eingeloggten |
+| `POST`   | `/api/tags`         | Neuen Tag anlegen | ADMIN |
+| `PUT`    | `/api/tags/{id}`    | Tag bearbeiten (Name + Farbe) | ADMIN |
+| `DELETE` | `/api/tags/{id}`    | Tag löschen (vorher: tag_id auf null bei betroffenen Bugs) | ADMIN |
+
+**Komponenten:**
+- `Tag` Java Record
+- `TagDao`
+- `TagService` (mit Validierung: Name nicht leer, Farbe valides Hex-Format)
+- `TagController` mit `@PreAuthorize("hasRole('ADMIN')")` auf POST/PUT/DELETE
+
 **Definition of Done:**
-- [ ] Alle Pflichtfelder in allen Requests annotiert
-- [ ] Validierungsfehler → HTTP 400 mit Feld-spezifischen Messages via GlobalExceptionHandler
+- TESTER versucht POST /api/tags → HTTP 403
+- ADMIN kann CRUD durchführen
+- Beim Löschen wird `bugs.tag_id` auf NULL gesetzt (kein Cascade-Delete der Bugs)
+
+**Implementiert:** US-16 (alle 3 AC, vgl. Pflichtenheft 5.16)
 
 ---
 
-## E5: Frontend Setup & Pages
+### T038b · Admin-User-Management Backend *(neu — FA-15 AC1+AC2)*
+**Was:** Endpoints für Admin-Übersicht aller User und Rollen-Änderung.
 
-> **Ziel:** React-SPA, die mit dem Backend kommuniziert. Alle UI-Seiten und Komponenten.  
-> **Voraussetzung:** E3 abgeschlossen (Backend-Auth läuft)  
-> **Deadline:** 13.05.2026
+**Endpoints:**
+| Methode | URL | Beschreibung | Rolle |
+|---------|-----|--------------|-------|
+| `GET`   | `/api/users`            | Alle User mit Rolle | ADMIN |
+| `PATCH` | `/api/users/{id}/role`  | Rolle ändern: `{ "role": "DEVELOPER" }` | ADMIN |
+
+**Validierung:**
+- Rolle muss in `{ TESTER, DEVELOPER, ADMIN }` sein
+- ADMIN kann sich nicht selbst die ADMIN-Rolle entziehen (Schutz vor Lock-out)
+
+**Implementiert:** US-15 (AC1: User-Übersicht, AC2: Rolle ändern)
+
+**Definition of Done:**
+- DEVELOPER versucht GET /api/users → HTTP 403
+- ADMIN kann Rolle eines anderen Users ändern
+- ADMIN kann seine eigene ADMIN-Rolle nicht ändern → HTTP 400 + Fehlermeldung
+- Activity-Eintrag wird erzeugt (optional, falls über Activity-Mechanismus)
+
+---
+
+# E5: Frontend Setup & Pages
+
+**Ziel:** React-SPA mit allen UI-Seiten.
+**Voraussetzung:** E3 abgeschlossen
+**Deadline:** 16.05.2026
 
 ---
 
 ### T039 · React + Vite + TypeScript Projekt-Setup
+**Befehl:** `npm create vite@latest frontend -- --template react-ts`
 
-**Was:** Frontend-Projekt initialisieren.
-
-```bash
-npm create vite@latest frontend -- --template react-ts
-```
-
-**Konfiguration:**
-- `tsconfig.json`: strict mode aktiviert
-- Verzeichnisstruktur: `src/pages`, `src/components`, `src/hooks`, `src/lib`
-
-**Definition of Done:**
-- [ ] `npm run dev` startet fehlerfrei auf Port 5173
-- [ ] TypeScript strict mode aktiv
+**Konfiguration:** `tsconfig.json` strict mode · Verzeichnisstruktur `src/{pages,components,hooks,context,lib}`
 
 ---
 
 ### T040 · Tailwind CSS Setup
-
 ```bash
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
 ```
 
-**Definition of Done:**
-- [ ] Tailwind-Klassen werden korrekt angewendet
-
 ---
 
 ### T041 · React Router Setup
-
-**Was:** Routing für alle Seiten.
-
 **Routes:**
-```typescript
-/           → Redirect zu /bugs (wenn eingeloggt) oder /login
-/login      → LoginPage
-/register   → RegisterPage
-/bugs       → BugListPage
-/bugs/new   → BugCreatePage
-/bugs/:id   → BugDetailPage
-/admin/users → AdminUsersPage  (nur ADMIN)
-/admin/tags  → AdminTagsPage   (nur ADMIN)
+```
+/             → /bugs (wenn eingeloggt) sonst /login
+/login        → LoginPage
+/register     → RegisterPage
+/bugs         → BugListPage
+/bugs/new     → BugCreatePage
+/bugs/:id     → BugDetailPage
+/admin/users  → AdminUsersPage  (nur ADMIN)
+/admin/tags   → AdminTagsPage   (nur ADMIN)
 ```
 
-**ProtectedRoute:** Leitet nicht eingeloggte User zu `/login` um.  
-**AdminRoute:** Leitet User ohne ADMIN-Rolle zu `/bugs` um.
-
-**Definition of Done:**
-- [ ] Alle Routes navigierbar
-- [ ] Nicht eingeloggte User werden zu `/login` umgeleitet
+**Wrapper-Komponenten:**
+- `<ProtectedRoute>` — leitet zu `/login` um wenn nicht eingeloggt
+- `<AdminRoute>` — leitet zu `/bugs` um wenn nicht ADMIN
 
 ---
 
 ### T042 · API-Client mit fetch + Custom Hooks
+**Was:** Zentraler HTTP-Client + Hooks `useBugs`, `useBug(id)`, `useUsers`, `useTags`.
 
-**Was:** Zentraler HTTP-Client und Custom Hooks für alle API-Calls.
-
-```typescript
-// lib/api.ts
-const api = {
-  get: (url) => fetch(url, { credentials: 'include' }),
-  post: (url, body) => fetch(url, { method: 'POST', credentials: 'include', body: JSON.stringify(body), headers: {'Content-Type': 'application/json'} }),
-  // put, patch, delete analog
-}
-
-// Hooks: useBugs(), useBug(id), useUsers(), useTags()
-// Jeder Hook liefert: { data, loading, error, refetch }
-```
-
-**Definition of Done:**
-- [ ] `credentials: 'include'` auf allen Requests
-- [ ] Loading- und Error-States vorhanden
-- [ ] TypeScript-Typen für alle API-Responses
+**Wichtig:** `credentials: 'include'` auf allen Requests · CSRF-Token-Handling falls aktiviert (siehe T021)
 
 ---
 
 ### T043 · Auth-Context + AuthProvider
+**Was:** React Context mit `user`, `loading`, `login()`, `logout()`.
 
-**Was:** React Context für den eingeloggten User.
+**Verhalten:** Beim App-Start `GET /api/auth/me` → User bleibt nach Page-Reload eingeloggt.
 
-```typescript
-interface AuthContext {
-  user: User | null;
-  loading: boolean;
-  login: (username, password) => Promise<void>;
-  logout: () => Promise<void>;
-}
-```
-
-**Verhalten:** Beim App-Start wird `GET /api/auth/me` aufgerufen — so bleibt der User nach Page-Reload eingeloggt.
-
-**Implementiert:** US-12 AC5 (Session-Persistenz)
-
-**Definition of Done:**
-- [ ] User bleibt nach Page-Reload eingeloggt
-- [ ] Logout leert den Context und leitet zu `/login` um
+**Implementiert:** US-12 AC5
 
 ---
 
-### T044 · Login-Seite + Auth-Flow
-
-**Was:** Login-Formular.
-
-**Felder:** Username, Passwort  
-**Bei Erfolg:** Redirect zu `/bugs`  
-**Bei Fehler:** Fehlermeldung anzeigen, Passwort-Feld leeren
-
-**Implementiert:** US-12 AC1 + AC2
+### T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
+**Felder:** Username, Passwort · Bei Erfolg Redirect zu `/bugs` · Bei Fehler Meldung + Passwort-Feld leeren
 
 ---
 
-### T045 · Register-Seite
-
-**Was:** Registrierungsformular mit Client-seitiger Validierung.
-
-**Felder:** Username, E-Mail, Passwort, Passwort bestätigen  
-**Validierung:** react-hook-form + zod (gleiche Regeln wie Backend)
-
-**Implementiert:** US-13 (alle 5 AC)
+### T045 · Register-Seite *(US-13)*
+**Felder:** Username, E-Mail, Passwort, Passwort bestätigen · Validation mit `react-hook-form` + `zod`
 
 ---
 
-### T046 · Bug-Liste-Seite (/bugs)
-
-**Was:** Hauptseite mit Tabelle aller Bugs.
-
-**Spalten:** ID, Titel, Status (Badge), Priorität, Tag, Bearbeiter, Erstelldatum  
-**Interaktion:** Klick auf Zeile → Detail-Seite  
-**Leerer Zustand:** Hinweis „Noch keine Bugs erfasst" + Button „Neuer Bug"
-
-**Implementiert:** US-02 (alle 5 AC)
+### T046 · Bug-Liste-Seite (/bugs) *(US-02)*
+**Spalten:** ID, Titel, Status (farbiges Badge), Priorität, Tag, Bearbeiter, Erstelldatum
+**Leerer Zustand:** Hinweis + Button „Neuer Bug"
+**Pagination:** 50 pro Seite
 
 ---
 
-### T047 · Bug-Detail-Seite (/bugs/:id)
-
-**Was:** Vollständige Anzeige aller Bug-Felder + Aktionen.
-
+### T047 · Bug-Detail-Seite (/bugs/:id) *(US-03)*
 **Enthält:**
-- Alle Bug-Felder angezeigt
+- Alle Bug-Felder
 - Edit-Button → öffnet Bearbeiten-Formular
-- Status-Dropdown (direkt änderbar)
-- Bearbeiter-Dropdown (direkt änderbar)
-- Tag-Dropdown (direkt änderbar)
-- Archivieren-Button (mit Bestätigungsdialog)
-- Bug-Historie als Timeline (nach E6 fertig)
-
-**Implementiert:** US-03 (alle 4 AC)
-
----
-
-### T048 · Bug-Erstellen-Formular
-
-**Was:** Formular zum Anlegen eines neuen Bugs.
-
-**Felder:** Titel (Pflicht), Beschreibung (Pflicht), Priorität (optional), Tag (optional)  
-**Submit:** `POST /api/bugs` → Redirect zur Detail-Seite  
-**Validierung:** react-hook-form + zod
-
-**Implementiert:** US-01
+- Status-Dropdown (Inline-Edit)
+- Bearbeiter-Dropdown (Inline-Edit)
+- Tag-Dropdown (Inline-Edit)
+- Priorität-Dropdown (Inline-Edit, ruft T036b auf)
+- Archivieren-Button mit Bestätigungsdialog
+- Bug-Historie als Timeline (siehe T059)
 
 ---
 
-### T049 · Bug-Bearbeiten-Formular
-
-**Was:** Vorbefülltes Formular zum Bearbeiten.
-
-**Felder:** Titel, Beschreibung, Priorität  
-**Submit:** `PUT /api/bugs/{id}`  
-**Abbrechen:** Verwirft alle Änderungen
-
-**Implementiert:** US-04
+### T048 · Bug-Erstellen-Formular *(US-01)*
+**Felder:** Titel (Pflicht), Beschreibung (Pflicht), Priorität (optional), Tag (optional)
 
 ---
 
-### T050 · Status-Dropdown + Bearbeiter-Dropdown (Inline-Editing)
-
-**Was:** Direkte Änderung von Status und Bearbeiter in der Detail-Seite ohne separaten Edit-Modus.
-
-**Ruft auf:** `PATCH /api/bugs/{id}/status` und `PATCH /api/bugs/{id}/assignee`
-
-**Implementiert:** US-06 + US-08
+### T049 · Bug-Bearbeiten-Formular *(US-04)*
+**Vorbefülltes Formular** · Submit `PUT /api/bugs/{id}` · Abbrechen verwirft Änderungen
 
 ---
 
-### T051 · Archivieren-Button + Reaktivieren
+### T050 · Inline-Editing-Dropdowns *(US-06, US-07, US-08)*
+**Was:** Status, Priorität, Bearbeiter, Tag direkt in Detail-Seite ändern.
 
-**Was:**
-- Archivieren: Button in Detail-Seite + Bestätigungsdialog → `DELETE /api/bugs/{id}`
-- Reaktivieren: Button bei archivierten Bugs → `PATCH /api/bugs/{id}/restore`
+**Ruft auf:**
+- `PATCH /api/bugs/{id}/status` (T036)
+- `PATCH /api/bugs/{id}/priority` (T036b)
+- `PATCH /api/bugs/{id}/assignee` (T037)
+- `PUT /api/bugs/{id}` (für Tag-Wechsel, falls kein eigener Endpoint)
 
-**Implementiert:** US-05
+---
+
+### T051 · Archivieren-Button + Reaktivieren *(US-05)*
 
 ---
 
 ### T052 · Hauptlayout + Navigation
-
-**Was:** Konsistenter Header über alle Seiten.
-
-**Enthält:** Logo, Nav-Links (Bugs, Admin für ADMIN-User), eingeloggter Username, Logout-Button
+**Header:** Logo · Nav-Links (Bugs, Admin-Bereich für ADMIN) · Username · Logout-Button
 
 ---
 
-### T053 · Filter-UI in Bug-Liste
+### T053 · Filter-UI in Bug-Liste *(US-09)*
+**Filter:** Status, Priorität, Tag, Bearbeiter
+**URL-Sync:** Filter als Query-Parameter → URL teilbar
+**Reset-Button** stellt Default-Liste wieder her
 
-**Was:** Status-Filter + Prioritäts-Filter + Tag-Filter.
+---
 
-**Besonderheit:** Filter werden als Query-Parameter in die URL geschrieben → URL ist teilbar  
-**Reset-Button:** Setzt alle Filter zurück
+### T053a · AdminTagsPage (Frontend) *(neu — FA-16)*
+**Was:** UI für Tag-Verwaltung, nur ADMIN sichtbar.
 
-**Implementiert:** US-09 (alle 5 AC)
+**Features:**
+- Liste aller Tags mit Name + Farbvorschau
+- Button „Neuer Tag" → Modal mit Name + Color-Picker
+- Edit-Button pro Tag
+- Delete-Button pro Tag mit Bestätigungsdialog („Wirklich löschen? Bugs verlieren ihre Tag-Zuordnung.")
+- Validierung: Name nicht leer
+
+**Route:** `/admin/tags` (geschützt durch `<AdminRoute>`)
+**API:** Nutzt T038a-Endpoints
+
+**Implementiert:** US-16 (Pflichtenheft 5.16)
+
+---
+
+### T053b · AdminUsersPage (Frontend) *(neu — FA-15)*
+**Was:** UI für Benutzerverwaltung, nur ADMIN sichtbar.
+
+**Features:**
+- Tabelle: Username, E-Mail, Rolle, Erstelldatum
+- Rollen-Dropdown pro User (Inline-Edit) → ruft `PATCH /api/users/{id}/role` (T038b) auf
+- Eigener User in der Liste deaktiviert / nicht änderbar (Lock-out-Schutz)
+
+**Route:** `/admin/users` (geschützt durch `<AdminRoute>`)
+**API:** Nutzt T038b-Endpoints
+
+**Implementiert:** US-15 AC1 + AC2 (Pflichtenheft 5.15)
 
 ---
 
 ### T054 · Toast-Notifications
-
-**Was:** Visuelles Feedback bei Aktionen.
 
 | Aktion | Meldung | Dauer |
 |--------|---------|-------|
 | Bug erstellt | „Bug erfolgreich erstellt" | 3 Sek |
 | Bug gespeichert | „Änderungen gespeichert" | 3 Sek |
 | Bug archiviert | „Bug archiviert" | 3 Sek |
+| Tag erstellt | „Tag erfolgreich erstellt" | 3 Sek |
+| Rolle geändert | „Rolle aktualisiert" | 3 Sek |
 | Fehler | „Speichern fehlgeschlagen: [Fehler]" | 5 Sek |
 
 ---
 
 ### T055 · Loading-States + Error-Handling
-
-**Was:**
-- Skeleton-Loader oder Spinner während API-Calls
-- Error-Boundary für unerwartete Fehler
-- Benutzerfreundliche Fehlermeldungen (kein „undefined" oder leere Seite)
+**Skeleton-Loader oder Spinner** während API-Calls · Error-Boundary für unerwartete Fehler · Benutzerfreundliche Meldungen
 
 ---
 
-## E6: Erweiterte Features
+# E6: Erweiterte Features
 
-> **Ziel:** Bug-Historie, Suche, Tags, Rollen, optional Kommentare.  
-> **Voraussetzung:** E4 + E5 abgeschlossen  
-> **Deadline:** 20.05.2026
+**Ziel:** Bug-Historie, Suche, optional Kommentare.
+**Voraussetzung:** E4 + E5 abgeschlossen
+**Deadline:** 20.05.2026
 
 ---
 
 ### T056 · V3-Migration: Activity-Tabelle
-
-**Datei:** `V3__activities.sql`
-
 ```sql
 CREATE TABLE activities (
     id         BIGSERIAL PRIMARY KEY,
@@ -1122,275 +952,247 @@ CREATE TABLE activities (
 ---
 
 ### T057 · ActivityDao + Activity-Tracking in BugService
-
 **Was:** Bei jedem Bug-Update automatisch Activity-Einträge erzeugen.
 
 **Erfasste Änderungen:** Status, Priorität, Bearbeiter, Titel, Beschreibung, Tag
 
-**Beispiel-Activity:**
-```json
-{
-  "action": "STATUS_CHANGED",
-  "field": "status",
-  "oldValue": "NEU",
-  "newValue": "IN_BEARBEITUNG",
-  "user": "marie",
-  "createdAt": "2026-05-10T14:23:00"
-}
-```
-
-**Implementiert:** US-14 AC2 + AC3
-
 ---
 
 ### T058 · GET /api/bugs/{id}/activities Endpoint
-
-**Was:** Chronologische Liste aller Änderungen (neueste oben).
-
-**Implementiert:** US-14 AC1 + AC4
+**Was:** Chronologische Liste (neueste oben).
 
 ---
 
-### T059 · Bug-Historie-Anzeige im Frontend
+### T059 · Bug-Historie-Anzeige im Frontend *(US-14)*
+**Timeline-Komponente** in Bug-Detail-Seite.
 
-**Was:** Timeline-Komponente in der Bug-Detail-Seite.
-
-**Anzeige:** Zeitstempel · User · Aktion (z.B. „Status geändert: NEU → IN_BEARBEITUNG")  
+**Anzeige:** Zeitstempel · User · Aktion (z.B. „Status geändert: NEU → IN_BEARBEITUNG")
 **Leerer Zustand:** „Bug erstellt von [Reporter]"
 
-**Implementiert:** US-14 (alle 5 AC)
-
 ---
 
-### T060 · Suchfeld in Bug-Liste (Frontend + Backend)
-
-**Was:**
-- **Frontend:** Suchfeld mit 300ms Debounce, Treffer im Titel optisch hervorgehoben
-- **Backend:** `GET /api/bugs?search=login` — case-insensitive ILIKE-Suche in `title`
-
-**Kombinierbar:** Suchfeld und Status-Filter wirken gleichzeitig
-
-**Implementiert:** US-10 (alle 5 AC)
+### T060 · Suchfeld in Bug-Liste (Frontend + Backend) *(US-10)*
+**Frontend:** Suchfeld mit 300ms Debounce · Treffer-Hervorhebung
+**Backend:** `GET /api/bugs?search=login` — case-insensitive ILIKE
+**Kombinierbar** mit Status/Priority/Tag-Filter
 
 ---
 
 ### T061 · (KANN) Kommentare-Backend
-
-**Was:** V4-Migration + Endpoints für Kommentare.
-
-**Datei:** `V4__comments.sql`  
-**Endpoints:** `GET /api/bugs/{id}/comments`, `POST /api/bugs/{id}/comments`
-
-**Implementiert:** US-11 Backend
+**Datei:** `V4__comments.sql` · Endpoints: GET/POST `/api/bugs/{id}/comments`
 
 ---
 
 ### T062 · (KANN) Kommentare-Frontend
-
-**Was:** Kommentar-Liste + Eingabe in der Bug-Detail-Seite.
-
-**Anforderungen:** Plain-Text (kein HTML-Rendering), chronologische Sortierung (älteste oben), Submit-Button deaktiviert wenn leer
-
-**Implementiert:** US-11 Frontend
+**Plain-Text** · Chronologische Sortierung (älteste oben) · Submit-Button deaktiviert wenn leer
 
 ---
 
-## E7: Tests & Quality
+# E7: Tests & Quality
 
-> **Ziel:** Coverage ≥ 60% in Service-Schicht. Alle wichtigen User Stories durch Tests abgedeckt.  
-> **Deadline:** 20.05.2026
+**Ziel:** Coverage ≥ 60% in Service-Schicht. Alle wichtigen User Stories durch Tests abgedeckt.
+**Deadline:** 20.05.2026
 
 ---
 
 ### T063 · Unit-Tests für PasswordHasher
-
-Mind. 3 Test-Cases: korrektes Hash + verify, falsches Passwort, verschiedene Inputs.  
-Ziel: 100% Coverage für PasswordHasher-Klasse.
+Mind. 3 Cases · 100% Coverage für `PasswordHasher`.
 
 ---
 
-### T064 · Unit-Tests für AuthService
-
-Testet: Login mit gültigen/ungültigen Credentials, Registrierungs-Logik, Doppelter-Username-Check.  
-**Alle AC von US-12 und US-13 als Unit-Tests implementiert.**
+### T064 · Unit-Tests für AuthService *(US-12, US-13)*
+Login mit gültigen/ungültigen Credentials · Registrierung · Doppelter-Username-Check.
 
 ---
 
-### T065 · Unit-Tests für BugService
+### T065 · Unit-Tests für BugService *(US-01 bis US-08)*
+Bug-CRUD · **Alle State-Machine-Übergänge (erlaubt + verboten)** · Soft-Delete + Reaktivierung · Bearbeiter-Zuweisung · **Prioritätsänderung** *(neu — FA-07)*
 
-Testet: Bug-CRUD, alle State-Machine-Übergänge (erlaubt + verboten), Soft-Delete + Reaktivierung, Bearbeiter-Zuweisung.  
-**Alle AC von US-01, US-04, US-05, US-06, US-08 als Unit-Tests implementiert.**
+---
+
+### T065b · Unit-Tests für TagService *(neu — FA-16)*
+**Was:** CRUD-Tests für Tag-Service.
+
+**Test-Cases:**
+- Tag erstellen mit gültigem Hex-Code
+- Tag erstellen mit ungültigem Hex-Code → Fehler
+- Doppelter Name → Fehler
+- Tag löschen, Bug verliert Tag-Zuordnung (`tag_id` auf NULL)
+
+---
+
+### T065c · Unit-Tests für UserService Rollen-Mgmt *(neu — FA-15)*
+**Test-Cases:**
+- ADMIN ändert Rolle eines anderen Users → erfolgreich
+- ADMIN ändert eigene Rolle → Fehler (Lock-out-Schutz)
+- DEVELOPER versucht Rollen-Änderung → AccessDeniedException
 
 ---
 
 ### T066 · Integration-Tests für Auth-Endpoints
-
-End-to-End via MockMvc: vollständiger Flow Login → `/me` → Logout.  
-Prüft korrekte HTTP-Status-Codes und Cookie-Handling.
+End-to-End via MockMvc: Login → /me → Logout · HTTP-Status + Cookie-Handling.
 
 ---
 
 ### T067 · Integration-Tests für Bug-Endpoints
+**Bug-Lifecycle:** Erstellen → Bearbeiten → Status ändern → Archivieren.
+**Deckt UC-01, UC-02, UC-03 ab.**
 
-Vollständiger Bug-Lifecycle: Erstellen → Bearbeiten → Status ändern → Archivieren.  
-Deckt Anwendungsfälle UC-01, UC-02, UC-03 aus dem Lastenheft ab.
+---
+
+### T067b · Integration-Tests für Rollenkontrolle *(neu — FA-15)*
+**Test-Cases:**
+- TESTER versucht POST /api/tags → HTTP 403
+- DEVELOPER versucht GET /api/users → HTTP 403
+- ADMIN kann alle Endpoints aufrufen
 
 ---
 
 ### T068 · Frontend Unit-Tests (Vitest + Testing Library)
-
-Mind. 5 Komponenten-Tests: Login-Formular, Bug-Erstellen-Formular, Auth-Context, ProtectedRoute, StatusDropdown.
+Mind. 5 Tests: Login-Formular, Bug-Erstellen-Formular, Auth-Context, ProtectedRoute, StatusDropdown.
 
 ---
 
 ### T069 · JaCoCo Code-Coverage-Report
-
-Maven-Plugin konfigurieren. Report unter `target/site/jacoco/index.html`.  
-**Ziel: ≥ 60% Coverage in der Service-Schicht.**  
-Report wird in CI als Artefakt gespeichert.
+Maven-Plugin · Report unter `target/site/jacoco/index.html` · Ziel: ≥ 60% Service-Schicht · CI-Artefakt.
 
 ---
 
-### T070 · Usability-Test mit 3 Probanden
+### T070 · Usability-Test mit 3 Probanden *(NFA-01)*
+**Aufgabe:** Ohne Erklärung einen neuen Bug anlegen.
+**Messung:** Zeit (Ziel: < 3 Minuten), Beobachtung von Problemen.
+**Protokoll:** `/docs/usability/usability_test.md`
 
-**Aufgabe für Probanden:** Ohne Erklärung einen neuen Bug anlegen.  
-**Messung:** Zeit (Ziel: < 3 Minuten), Beobachtung von Problemen.  
-**Protokoll:** Im Repo unter `/docs/usability/usability_test.md`
+---
+
+### T070b · Performance-Test mit JMeter *(neu — NFA-04)*
+**Was:** Lasttest mit JMeter gegen `GET /api/bugs` (Bug-Liste laden) und `POST /api/bugs` (Bug anlegen).
+
+**Setup:**
+- 100 Beispiel-Bugs in der Datenbank (via Seed-Script)
+- JMeter-Testplan: 50 simulierte User, je 10 Requests
+- Hardware: Standard-Laptop (16 GB RAM, Intel i5+)
+
+**Ziel-Metrik:** 95% der Requests < 2 Sekunden Roundtrip
+
+**Definition of Done:**
+- JMeter-Testplan im Repo unter `/docs/performance/jmeter-testplan.jmx`
+- Ergebnis-Report unter `/docs/performance/results.html`
+- NFA-04 erfüllt oder Abweichung dokumentiert
 
 ---
 
 ### T071 · SonarLint-Cleanup
-
-IDE-Warnings in IntelliJ IDEA prüfen. Alle Critical-Findings beheben.  
-**Ziel: Keine Critical-Findings** in der IDE-Analyse.
+IDE-Warnings prüfen · Alle Critical-Findings beheben · Ziel: keine Critical-Findings.
 
 ---
 
-## E8: Deployment
+# E8: Deployment
 
-> **Ziel:** App online erreichbar für Live-Demo am 22.05.2026.  
-> **Deadline:** 20.05.2026
+**Ziel:** App online erreichbar für Live-Demo am 22.05.2026.
+**Deadline:** 21.05.2026
 
 ---
 
 ### T072 · Hosting-Plattform wählen und dokumentieren
-
-**Optionen:** Railway / Render / MCI-Server  
-**Kriterien:** Kosten, Java 21 Support, PostgreSQL Add-on, Static Hosting für Frontend  
-**Ergebnis:** Begründete Entscheidung im Pflichtenheft dokumentieren
+**Optionen:** Railway · Render · MCI-Server
+**Kriterien:** Kosten · Java 21 Support · PostgreSQL Add-on · Static Hosting
 
 ---
 
 ### T073 · Production-DB-Konfiguration
-
-PostgreSQL auf Hosting-Plattform einrichten. Connection-String als Environment-Variable konfigurieren. Flyway-Migrationen laufen automatisch beim Backend-Start.
+PostgreSQL auf Hosting-Plattform · Connection-String als Env-Variable · Flyway läuft beim Start.
 
 ---
 
 ### T074 · Environment-Variablen-Setup
-
-**Variables:**
 ```
 DATABASE_URL=postgresql://...
 SPRING_PROFILES_ACTIVE=prod
 SESSION_SECRET=...
 CORS_ALLOWED_ORIGIN=https://bugtracker.example.com
 ```
-
-**Regel:** Keine Secrets im Git-Repo. `application-prod.yml` referenziert nur Env-Variablen.
+**Regel:** Keine Secrets im Repo · `application-prod.yml` referenziert nur Env-Variablen.
 
 ---
 
 ### T075 · Frontend-Build + Static-Hosting
-
-`npm run build` erzeugt `/dist`. Hosting via Vercel, Netlify oder Spring Boot `static/`-Ordner.  
-**SPA-Fallback:** Direkter URL-Aufruf (z.B. `/bugs/42`) muss funktionieren.
+`npm run build` → `/dist` · Hosting via Vercel/Netlify/Spring Boot static · **SPA-Fallback:** Direkter URL-Aufruf (`/bugs/42`) muss funktionieren.
 
 ---
 
 ### T076 · Deployment-Workflow in CI
-
-GitHub Action: Bei Push auf `main` → automatisches Deployment Backend + Frontend.  
-Deployment-Log sichtbar in GitHub Actions.
+GitHub Action: Push auf `main` → automatisches Deployment Backend + Frontend · Logs in GitHub Actions.
 
 ---
 
 ### T077 · Health-Check-Endpoint
-
-`GET /actuator/health` → HTTP 200 wenn alles OK.  
-Wird vom Hosting-Provider als Liveness/Readiness-Check verwendet.
+`GET /actuator/health` → HTTP 200 · Hosting-Provider nutzt es als Liveness/Readiness-Check.
 
 ---
 
 ### T078 · Smoke-Test nach Deployment
-
-Nach jedem Deployment manueller Test auf Production:
-1. Login funktioniert
-2. Bug anlegen funktioniert
-3. Status-Wechsel funktioniert
-
-Protokoll unter `/docs/deployments/smoke_test_DATUM.md`.
+Manueller Test: Login · Bug anlegen · Status-Wechsel · Tag zuweisen · Admin-Funktionen · Protokoll unter `/docs/deployments/smoke_test_DATUM.md`.
 
 ---
 
-## E9: Präsentation & Bericht
+# E9: Präsentation & Bericht
 
-> **Ziel:** Abschlusspräsentation + Projektbericht.  
-> **Bewertungsanteil:** 40% Präsentation · 30% Bericht  
-> **Deadline:** 22.05.2026 (Präsentation) · 22.05.2026 23:59 Uhr (Bericht)
+**Ziel:** Abschlusspräsentation + Projektbericht.
+**Bewertungsanteil:** 40% Präsentation · 30% Bericht
+**Deadline:** 22.05.2026 (Präsentation) · 22.05.2026 23:59 (Bericht)
 
 ---
 
 ### T079 · Präsentations-Slides erstellen
+**Umfang:** 10–15 Folien
 
-**Umfang:** 10–15 Folien  
 **Struktur:**
 1. Problemstellung (Warum BugTracker?)
-2. Personas + Use Cases
-3. Architektur-Überblick
-4. Live-Demo (interaktiver Teil)
-5. Tech-Stack + Entscheidungen
-6. Lessons Learned
-7. Ausblick
+2. Personas + Use Cases (Use-Case-Diagramm zeigen)
+3. Architektur-Überblick (Architekturdiagramm)
+4. Datenmodell (Klassendiagramm)
+5. **Anforderungs-Compliance** (FA → Task-Mapping-Tabelle als Beweis)
+6. Live-Demo (interaktiver Teil)
+7. Tech-Stack + Entscheidungen
+8. Lessons Learned
+9. Ausblick
 
-**Speicherort:** `/docs/presentation/` im Repo
+**Speicherort:** `/docs/presentation/`
 
 ---
 
 ### T080 · Demo-Daten vorbereiten
+Mind. 5 realistische Beispiel-Bugs in verschiedenen Stati · Reproduzierbar via `seed.sql` oder Java-Seeder.
 
-Mind. 5 realistische Beispiel-Bugs in verschiedenen Stati. Reproduzierbar via `seed.sql` oder Java-Seeder.  
-Demo-Daten müssen alle Features zeigen: Filter, Suche, Historie, Tags, Rollenunterschiede.
+**Demo zeigt:** Filter, Suche, Historie, Tags, **Rollenunterschiede (Tester vs. Developer vs. Admin)**, Inline-Edit, State-Machine.
+
+**Mind. 1 User pro Rolle für Demo-Login.**
 
 ---
 
 ### T081 · Probelauf mit Team
-
-Komplette Präsentation inkl. Live-Demo durchspielen.  
-**Ziel:** < 20 Minuten Gesamtzeit.  
-Identifizierte Schwächen dokumentieren und beheben.
+Komplette Präsentation inkl. Live-Demo · Ziel: < 20 Minuten · Schwächen dokumentieren und beheben.
 
 ---
 
 ### T082 · Projektbericht schreiben
+**Umfang:** Mind. 10 Seiten
 
-**Umfang:** Mind. 10 Seiten  
 **Inhalt:**
-1. Projektverlauf (Zeitleiste, was lief gut / schlecht)
+1. Projektverlauf (Zeitleiste, was lief gut/schlecht)
 2. Architektur-Entscheidungen mit Begründung
-3. Herausforderungen + Lösungen
-4. Lessons Learned
-5. Fazit
+3. **Anforderungs-Compliance** (FA → Task-Mapping aus dieser Datei einbinden)
+4. Herausforderungen + Lösungen
+5. Lessons Learned
+6. Fazit
 
-**Abgabe:** Als PDF im Sakai bis 22.05.2026, 23:59 Uhr
+**Abgabe:** Als PDF im Sakai bis 22.05.2026, 23:59
 
 ---
 
 ### T083 · Slides finalisieren + Demo-Skript
-
-Letzter Polish nach dem Probelauf.  
-**Demo-Skript:** Klare Schritte was wer klickt, in welcher Reihenfolge.  
-**Fallback-Plan:** Video als Backup, falls die Live-Demo crasht.
+Letzter Polish · **Demo-Skript:** Klare Schritte, wer was klickt · **Fallback-Plan:** Demo-Video als Backup falls Live-Demo crasht.
 
 ---
 
@@ -1400,15 +1202,49 @@ Letzter Polish nach dem Probelauf.
 E1 (Setup)
   └── E2 (CI/CD)
         └── E3 (Auth)
-              ├── E4 (Bug-Backend)
+              ├── E4 (Bug-Backend + Tags-Backend + Admin-Backend)
               │     └── E6 (Erweiterte Features)
-              │           └── E7 (Tests)
+              │           └── E7 (Tests + Performance)
               │                 └── E8 (Deployment)
               │                       └── E9 (Präsentation)
-              └── E5 (Frontend)
+              └── E5 (Frontend + Admin-Pages)
                     └── E6 (Erweiterte Features)
 ```
 
 ---
 
-*Letzte Aktualisierung: Mai 2026 · Gruppe DE 3 · MCI Innsbruck*
+## Was sich gegenüber v1.0 dieser Datei geändert hat
+
+**Neu hinzugefügte Tasks (9 Stück):**
+- T003a Use-Case-Diagramm
+- T003b Klassendiagramm
+- T003c Sequenzdiagramm
+- T009b Anforderungs-Mapping pflegen
+- T021b @PreAuthorize-Annotationen
+- T036b PATCH /api/bugs/{id}/priority (FA-07)
+- T038a Tag-CRUD Backend (FA-16)
+- T038b Admin-User-Mgmt Backend (FA-15 AC1+AC2)
+- T053a AdminTagsPage Frontend (FA-16)
+- T053b AdminUsersPage Frontend (FA-15)
+- T065b Tag-Service Tests
+- T065c User-Rollen-Tests
+- T067b Rollenkontrolle Integration-Tests
+- T070b JMeter Performance-Test (NFA-04)
+
+**Korrigiert / präzisiert:**
+- T002: v1.0 → v1.1
+- T010: Klarstellung "keine spring-session-jdbc"
+- T019: spring_session-Tabelle entfernt + CHECK-Constraint auf role
+- T021: CSRF-Diskrepanz zum Pflichtenheft NFA-07 dokumentiert
+- T028: AccessDeniedException ergänzt
+- T029: Standard-Tags als Demo-Daten in Migration eingefügt
+- T080: Mind. 1 User pro Rolle erwähnt
+
+**Sprint-Plan synchronisiert** mit Pflichtenheft Abschnitt 13:
+- E3 → MVP v0.1 (09.05.2026)
+- E4 + E5 → Beta v0.5 (16.05.2026)
+- E6 + E7 + E8 → Release v1.0 (22.05.2026)
+
+---
+
+**Letzte Aktualisierung:** 04.05.2026 · Gruppe DE 3 · MCI Innsbruck

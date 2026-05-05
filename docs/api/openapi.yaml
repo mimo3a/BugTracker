@@ -1,0 +1,1194 @@
+openapi: 3.0.3
+info:
+  title: BugTracker API
+  version: 1.0.0
+  description: |
+    REST API für den BugTracker — eine Webanwendung zur Verwaltung von Software-Fehlern.
+
+    **Authentifizierung:** Session-Cookie (`JSESSIONID`). Login per `POST /api/auth/login`,
+    der Server setzt das Cookie. Folgende Requests müssen das Cookie mitsenden
+    (Browser macht das automatisch).
+
+    **CSRF:** Geschützte Endpoints (alles außer Login/Register) erwarten den
+    CSRF-Token im Header `X-XSRF-TOKEN`. Der Token wird vom Server als Cookie
+    `XSRF-TOKEN` gesetzt — das Frontend liest ihn aus und sendet ihn im Header
+    mit. Siehe TASKS.md T021 für CSRF-Konzept.
+
+    **Rollen:**
+    - `TESTER` — kann Bugs anlegen, sehen, suchen, kommentieren
+    - `DEVELOPER` — zusätzlich Bugs bearbeiten, Status/Priorität/Bearbeiter ändern
+    - `ADMIN` — zusätzlich Tags und User verwalten
+
+    **Status-State-Machine (FA-06, T036):**
+    - `NEU → IN_BEARBEITUNG, ABGELEHNT`
+    - `IN_BEARBEITUNG → IM_REVIEW, ABGELEHNT`
+    - `IM_REVIEW → ERLEDIGT, IN_BEARBEITUNG, ABGELEHNT`
+    - `ERLEDIGT → ARCHIVIERT`
+    - `ABGELEHNT → ARCHIVIERT`
+    - alle Status `→ ARCHIVIERT`
+
+    Verbotene Übergänge geben `400 Bad Request` zurück.
+  contact:
+    name: BugTracker Team — Gruppe DE 3 · MCI Innsbruck
+  license:
+    name: Universitätsprojekt — MCI Innsbruck
+
+servers:
+  - url: http://localhost:8080
+    description: Lokale Entwicklung
+  - url: https://bugtracker.example.com
+    description: Produktion (geplant, T072)
+
+security:
+  - sessionAuth: []
+  - csrfToken: []
+
+tags:
+  - name: Auth
+    description: Login, Logout, Registrierung, Session-Info
+  - name: Bugs
+    description: Bug-CRUD, Status- und Prioritätsverwaltung, Soft-Delete
+  - name: Tags
+    description: Tag-Verwaltung (ADMIN)
+  - name: Users
+    description: User-Verwaltung (ADMIN)
+  - name: Activities
+    description: Bug-Historie
+  - name: Comments
+    description: Kommentare (optional, KANN-Anforderung FA-11)
+
+paths:
+  # ============================================================
+  # AUTH
+  # ============================================================
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login (FA-12, T023)
+      description: |
+        Authentifiziert einen User. Bei Erfolg wird ein Session-Cookie gesetzt.
+        Bei Fehler keine Information darüber, ob Username existiert (Sicherheit).
+      operationId: login
+      security: []  # öffentlich
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: marie
+              password: secret123
+      responses:
+        '200':
+          description: Login erfolgreich
+          headers:
+            Set-Cookie:
+              description: Session-Cookie + CSRF-Cookie
+              schema:
+                type: string
+              example: JSESSIONID=ABC123; HttpOnly; Path=/
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: Login fehlgeschlagen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Login fehlgeschlagen
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (FA-12, T024)
+      description: Invalidiert die Session und löscht das Cookie.
+      operationId: logout
+      responses:
+        '204':
+          description: Logout erfolgreich
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrierung (FA-12, T025)
+      description: |
+        Legt einen neuen User an mit Default-Rolle `TESTER`.
+
+        **Validierung:**
+        - Username: 3–50 Zeichen, eindeutig
+        - Email: valides Format, eindeutig
+        - Passwort: mind. 8 Zeichen
+        - `passwordConfirm` muss übereinstimmen
+      operationId: register
+      security: []  # öffentlich
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              username: marie
+              email: marie@example.com
+              password: secret123
+              passwordConfirm: secret123
+      responses:
+        '201':
+          description: User erfolgreich angelegt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Username oder Email bereits vergeben
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Username bereits vergeben
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Eingeloggten User abfragen (FA-12, T026)
+      description: |
+        Gibt den aktuell eingeloggten User zurück. Wird vom Frontend bei App-Start
+        aufgerufen, um Session-Persistenz zu prüfen (User bleibt nach Page-Reload
+        eingeloggt).
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Aktueller User
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================================
+  # BUGS
+  # ============================================================
+  /api/bugs:
+    get:
+      tags: [Bugs]
+      summary: Bug-Liste mit Filtern (FA-02, FA-09, T032)
+      description: |
+        Liefert eine paginierte Liste von Bugs.
+
+        Filter sind kombinierbar — alle als Query-Parameter.
+        `status` kann mehrfach angegeben werden (z.B. `?status=NEU&status=IN_BEARBEITUNG`).
+
+        **Default:** `archived=false` (archivierte Bugs werden ausgeblendet).
+
+        **Suche:** `search` macht case-insensitive ILIKE auf `title`.
+      operationId: listBugs
+      parameters:
+        - name: status
+          in: query
+          description: Nach Status filtern (multi)
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/BugStatus'
+          style: form
+          explode: true
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/Priority'
+        - name: assigneeId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: tagId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: search
+          in: query
+          description: Volltext-Suche im Titel (FA-10, T060)
+          schema:
+            type: string
+        - name: archived
+          in: query
+          description: Archivierte einschließen (default false)
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Bug-Liste
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BugListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Bugs]
+      summary: Bug anlegen (FA-01, T031)
+      description: |
+        Legt einen neuen Bug an. Reporter = eingeloggter User.
+        Default-Status: `NEU`. Default-Priorität: `MITTEL`.
+
+        **Rolle:** TESTER, DEVELOPER, ADMIN
+      operationId: createBug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBugRequest'
+            example:
+              title: Login-Button reagiert nicht
+              description: Beim Klick auf Login passiert nichts. Reproduktion ...
+              priority: HOCH
+              tagId: 1
+      responses:
+        '201':
+          description: Bug erfolgreich erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/bugs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+
+    get:
+      tags: [Bugs]
+      summary: Bug-Detail (FA-03, T033)
+      operationId: getBug
+      responses:
+        '200':
+          description: Bug-Details inkl. Reporter, Assignee, Tag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Bugs]
+      summary: Bug bearbeiten (FA-04, T034)
+      description: |
+        Bearbeitet Titel und/oder Beschreibung.
+        Priorität ändert sich via separatem Endpoint (PATCH /priority).
+        Erzeugt Activity-Einträge für jedes geänderte Feld (FA-14).
+
+        **Rolle:** DEVELOPER, ADMIN
+      operationId: updateBug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBugRequest'
+      responses:
+        '200':
+          description: Bug aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Bugs]
+      summary: Bug archivieren — Soft-Delete (FA-05, T035)
+      description: |
+        Setzt `archived = true`. Der Bug bleibt in der DB erhalten und kann
+        via PATCH /restore wieder reaktiviert werden.
+
+        **Rolle:** DEVELOPER, ADMIN
+      operationId: archiveBug
+      responses:
+        '204':
+          description: Bug archiviert
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/bugs/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    patch:
+      tags: [Bugs]
+      summary: Bug reaktivieren (FA-05, T035)
+      description: Setzt `archived = false`. **Rolle:** DEVELOPER, ADMIN
+      operationId: restoreBug
+      responses:
+        '200':
+          description: Bug reaktiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/bugs/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    patch:
+      tags: [Bugs]
+      summary: Status ändern (FA-06, T036)
+      description: |
+        Ändert den Status mit State-Machine-Validierung. Verbotene Übergänge
+        geben `400` zurück.
+
+        Erlaubte Übergänge — siehe API-Beschreibung oben.
+
+        **Rolle:** DEVELOPER, ADMIN
+      operationId: updateBugStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+            example:
+              status: IN_BEARBEITUNG
+      responses:
+        '200':
+          description: Status aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '400':
+          description: Ungültiger Statuswechsel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Ungültiger Statuswechsel von ERLEDIGT zu NEU
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/bugs/{id}/priority:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    patch:
+      tags: [Bugs]
+      summary: Priorität ändern (FA-07, T036b)
+      description: |
+        Ändert die Priorität. Erzeugt Activity-Eintrag.
+
+        **Rolle:** DEVELOPER, ADMIN
+      operationId: updateBugPriority
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePriorityRequest'
+            example:
+              priority: KRITISCH
+      responses:
+        '200':
+          description: Priorität aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/bugs/{id}/assignee:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    patch:
+      tags: [Bugs]
+      summary: Bearbeiter zuweisen (FA-08, T037)
+      description: |
+        Setzt oder entfernt den Bearbeiter. `assigneeId: null` entfernt den Bearbeiter.
+
+        **Rolle:** DEVELOPER, ADMIN
+      operationId: updateBugAssignee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssigneeRequest'
+            example:
+              assigneeId: 3
+      responses:
+        '200':
+          description: Bearbeiter aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Bug oder User nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================================
+  # ACTIVITIES
+  # ============================================================
+  /api/bugs/{id}/activities:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    get:
+      tags: [Activities]
+      summary: Bug-Historie (FA-14, T058)
+      description: Chronologische Liste aller Änderungen am Bug, neueste oben.
+      operationId: getBugActivities
+      responses:
+        '200':
+          description: Activity-Liste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================
+  # COMMENTS (optional, FA-11)
+  # ============================================================
+  /api/bugs/{id}/comments:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    get:
+      tags: [Comments]
+      summary: Kommentare zum Bug (FA-11, T061 — KANN)
+      operationId: getBugComments
+      responses:
+        '200':
+          description: Liste der Kommentare (älteste oben)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Comments]
+      summary: Kommentar hinzufügen (FA-11, T061 — KANN)
+      operationId: createBugComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+            example:
+              content: Kann das Problem reproduzieren, betrifft auch Safari.
+      responses:
+        '201':
+          description: Kommentar erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================
+  # TAGS (FA-16, T038a)
+  # ============================================================
+  /api/tags:
+    get:
+      tags: [Tags]
+      summary: Alle Tags (FA-16)
+      description: Wird vom Frontend für Dropdowns und Filter benötigt.
+      operationId: listTags
+      responses:
+        '200':
+          description: Tag-Liste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Tags]
+      summary: Neuen Tag anlegen (FA-16, ADMIN)
+      operationId: createTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+            example:
+              name: Backend
+              color: '#3B82F6'
+      responses:
+        '201':
+          description: Tag erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Tag-Name bereits vergeben
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tags/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+
+    put:
+      tags: [Tags]
+      summary: Tag bearbeiten (FA-16, ADMIN)
+      operationId: updateTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '200':
+          description: Tag aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Tags]
+      summary: Tag löschen (FA-16, ADMIN)
+      description: |
+        Vor dem Löschen wird `bugs.tag_id` auf NULL gesetzt — die Bugs verlieren
+        ihre Tag-Zuordnung, werden aber nicht selbst gelöscht.
+      operationId: deleteTag
+      responses:
+        '204':
+          description: Tag gelöscht
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================
+  # USERS (FA-15, T038b)
+  # ============================================================
+  /api/users:
+    get:
+      tags: [Users]
+      summary: Alle User mit Rolle (FA-15, ADMIN)
+      operationId: listUsers
+      responses:
+        '200':
+          description: User-Liste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/users/{id}/role:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    patch:
+      tags: [Users]
+      summary: Rolle ändern (FA-15, ADMIN)
+      description: |
+        ADMIN kann die Rolle eines Users ändern.
+
+        **Lock-out-Schutz:** ADMIN kann seine eigene Rolle nicht ändern.
+      operationId: updateUserRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+            example:
+              role: DEVELOPER
+      responses:
+        '200':
+          description: Rolle aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Lock-out-Schutz oder ungültige Rolle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Eigene Rolle kann nicht geändert werden
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ============================================================
+# COMPONENTS
+# ============================================================
+components:
+  # ----------------------------------------------------------
+  # SECURITY
+  # ----------------------------------------------------------
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: Spring Boot Session-Cookie. Wird beim Login gesetzt.
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
+      description: |
+        CSRF-Token aus dem `XSRF-TOKEN`-Cookie. Pflicht für alle nicht-GET-Requests
+        außer Login/Register/Logout. Siehe TASKS.md T021.
+
+  # ----------------------------------------------------------
+  # PARAMETERS
+  # ----------------------------------------------------------
+  parameters:
+    BugIdPath:
+      name: id
+      in: path
+      required: true
+      description: Bug-ID
+      schema:
+        type: integer
+        format: int64
+        example: 42
+
+  # ----------------------------------------------------------
+  # RESPONSES (wiederverwendbar)
+  # ----------------------------------------------------------
+  responses:
+    Unauthorized:
+      description: Nicht eingeloggt oder Session abgelaufen
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Nicht authentifiziert
+
+    Forbidden:
+      description: Keine Berechtigung für diese Aktion
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Keine Berechtigung
+
+    NotFound:
+      description: Ressource nicht gefunden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Nicht gefunden
+
+    ValidationError:
+      description: Validierungsfehler im Request-Body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            error: Validierung fehlgeschlagen
+            fieldErrors:
+              title: Titel ist erforderlich
+              priority: Ungültige Priorität
+
+  # ----------------------------------------------------------
+  # SCHEMAS — Enums
+  # ----------------------------------------------------------
+  schemas:
+    BugStatus:
+      type: string
+      description: |
+        Status eines Bugs. Siehe State-Machine-Diagramm in API-Beschreibung.
+      enum:
+        - NEU
+        - IN_BEARBEITUNG
+        - IM_REVIEW
+        - ERLEDIGT
+        - ABGELEHNT
+        - ARCHIVIERT
+
+    Priority:
+      type: string
+      description: Priorität eines Bugs (FA-07).
+      enum:
+        - NIEDRIG
+        - MITTEL
+        - HOCH
+        - KRITISCH
+
+    Role:
+      type: string
+      description: User-Rolle (FA-15).
+      enum:
+        - TESTER
+        - DEVELOPER
+        - ADMIN
+
+    # --------------------------------------------------------
+    # SCHEMAS — Entitäten
+    # --------------------------------------------------------
+    User:
+      type: object
+      required: [id, username, email, role, active, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: marie
+        email:
+          type: string
+          format: email
+          example: marie@example.com
+        role:
+          $ref: '#/components/schemas/Role'
+        active:
+          type: boolean
+          default: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-05-09T14:23:00Z'
+
+    Tag:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          maxLength: 50
+          example: Backend
+        color:
+          type: string
+          description: Hex-Farbcode (z.B. `#3B82F6`)
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: '#3B82F6'
+        createdAt:
+          type: string
+          format: date-time
+
+    Bug:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - status
+        - priority
+        - reporterId
+        - reporterName
+        - archived
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 42
+        title:
+          type: string
+          maxLength: 255
+          example: Login-Button reagiert nicht
+        description:
+          type: string
+          example: Beim Klick auf Login passiert nichts.
+        status:
+          $ref: '#/components/schemas/BugStatus'
+        priority:
+          $ref: '#/components/schemas/Priority'
+        reporterId:
+          type: integer
+          format: int64
+          example: 1
+        reporterName:
+          type: string
+          description: Username des Reporters (Convenience-Feld für Frontend)
+          example: marie
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 3
+        assigneeName:
+          type: string
+          nullable: true
+          example: tom
+        tagId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 1
+        tagName:
+          type: string
+          nullable: true
+          example: Backend
+        archived:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Activity:
+      type: object
+      description: Eintrag in der Bug-Historie (FA-14).
+      required: [id, bugId, userId, userName, action, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bugId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        userName:
+          type: string
+          example: marie
+        action:
+          type: string
+          description: Art der Aktion, z.B. `STATUS_CHANGED`, `ASSIGNEE_CHANGED`, `CREATED`
+          example: STATUS_CHANGED
+        field:
+          type: string
+          nullable: true
+          example: status
+        oldValue:
+          type: string
+          nullable: true
+          example: NEU
+        newValue:
+          type: string
+          nullable: true
+          example: IN_BEARBEITUNG
+        createdAt:
+          type: string
+          format: date-time
+
+    Comment:
+      type: object
+      required: [id, bugId, userId, userName, content, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bugId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        userName:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------
+    # SCHEMAS — Request-Bodies
+    # --------------------------------------------------------
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 8
+
+    RegisterRequest:
+      type: object
+      required: [username, email, password, passwordConfirm]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        passwordConfirm:
+          type: string
+          minLength: 8
+
+    CreateBugRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        priority:
+          $ref: '#/components/schemas/Priority'
+        tagId:
+          type: integer
+          format: int64
+          nullable: true
+
+    UpdateBugRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        tagId:
+          type: integer
+          format: int64
+          nullable: true
+
+    UpdateStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/BugStatus'
+
+    UpdatePriorityRequest:
+      type: object
+      required: [priority]
+      properties:
+        priority:
+          $ref: '#/components/schemas/Priority'
+
+    UpdateAssigneeRequest:
+      type: object
+      required: [assigneeId]
+      properties:
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: User-ID oder `null` zum Entfernen
+
+    CreateTagRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+
+    UpdateRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+
+    CreateCommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+
+    # --------------------------------------------------------
+    # SCHEMAS — Response Wrapper
+    # --------------------------------------------------------
+    BugListResponse:
+      type: object
+      required: [bugs, total, page, pageSize]
+      properties:
+        bugs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bug'
+        total:
+          type: integer
+          example: 73
+        page:
+          type: integer
+          example: 0
+        pageSize:
+          type: integer
+          example: 50
+
+    # --------------------------------------------------------
+    # SCHEMAS — Errors
+    # --------------------------------------------------------
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Menschen-lesbare Fehlermeldung
+          example: Nicht gefunden
+
+    ValidationError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Validierung fehlgeschlagen
+        fieldErrors:
+          type: object
+          description: Map von Feldname → Fehlermeldung
+          additionalProperties:
+            type: string
+          example:
+            title: Titel ist erforderlich
+            email: Ungültiges E-Mail-Format
