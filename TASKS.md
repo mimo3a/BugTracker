@@ -328,7 +328,7 @@ services:
 
 ---
 
-### T013 · GitHub Actions CI Pipeline (Backend)
+### ✅ T013 · GitHub Actions CI Pipeline (Backend)
 **Datei:** `.github/workflows/ci-backend.yml`
 
 **Pipeline:** Checkout → Java 21 → PostgreSQL Service → `mvn test` → Fail blockiert Merge
@@ -342,7 +342,7 @@ services:
 
 ---
 
-### T015 · README.md mit Setup-Anleitung
+### ✅ T015 · README.md mit Setup-Anleitung
 **Ziel:** Neues Teammitglied kann in unter 15 Minuten lokal starten.
 
 **Inhalt:** Voraussetzungen, Klonen, DB starten, Backend starten, Frontend starten, Tests ausführen.
