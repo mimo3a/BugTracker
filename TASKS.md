@@ -177,7 +177,7 @@ Diese Tabelle dient dem Nachweis, dass jede Pflichtenheft-Anforderung implementi
 
 ---
 
-### T004 · OpenAPI-Spec für REST-API entwerfen
+### ✅T004 · OpenAPI-Spec für REST-API entwerfen
 **Was:** `openapi.yaml` mit allen Backend-Endpoints. Single Source of Truth zwischen Backend und Frontend.
 
 **Inhalt:**
