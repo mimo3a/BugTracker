@@ -354,7 +354,7 @@ services:
 
 ---
 
-### T017 · CONTRIBUTING.md schreiben
+### ✅ T017 · CONTRIBUTING.md schreiben
 **Inhalt:** Branching-Strategie, Conventional Commits, PR-Template, Code-Review-Erwartungen.
 
 ---
