@@ -1,0 +1,74 @@
+name: CI Backend
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-backend.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-backend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & Test (Java 21 · PostgreSQL 16)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bugtracker
+          POSTGRES_USER: bugtracker
+          POSTGRES_PASSWORD: bugtracker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bugtracker -d bugtracker"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Verify Maven & Java
+        run: |
+          mvn --version
+          java -version
+
+      - name: Build & run tests
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/bugtracker
+          SPRING_DATASOURCE_USERNAME: bugtracker
+          SPRING_DATASOURCE_PASSWORD: bugtracker
+        run: mvn -B -ntp clean verify
+
+      - name: Upload Surefire test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
