@@ -909,7 +909,6 @@ components:
       required:
         - id
         - title
-        - description
         - status
         - priority
         - reporterId
