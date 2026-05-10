@@ -308,11 +308,11 @@ paths:
       tags: [Bugs]
       summary: Bug bearbeiten (FA-04, T034)
       description: |
-        Bearbeitet Titel und/oder Beschreibung.
+        Bearbeitet Titel, Beschreibung und Tag-Zuordnungen.
         Priorität ändert sich via separatem Endpoint (PATCH /priority).
-        Erzeugt Activity-Einträge für jedes geänderte Feld (FA-14).
+        Activity-Einträge folgen mit FA-14 (Migration T056).
 
-        **Rolle:** DEVELOPER, ADMIN
+        **Rolle:** DEVELOPER, ADMIN, sowie TESTER für eigene Bugs (Reporter).
       operationId: updateBug
       requestBody:
         required: true
@@ -335,6 +335,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Bug ist archiviert und kann nicht bearbeitet werden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags: [Bugs]
@@ -1079,6 +1085,7 @@ components:
 
     UpdateBugRequest:
       type: object
+      required: [title, description]
       properties:
         title:
           type: string
@@ -1087,9 +1094,15 @@ components:
         description:
           type: string
           minLength: 1
-        tagId:
-          type: integer
-          format: int64
+          maxLength: 10000
+        tagIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          description: |
+            M:N — komplette Tag-Zuordnung. Wenn `null`, bleiben bestehende Tags erhalten;
+            leere Liste entfernt alle Tags.
           nullable: true
 
     UpdateStatusRequest:
