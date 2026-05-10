@@ -584,7 +584,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle
+### T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle + Junction
 **Datei:** `V2__bugs.sql`
 
 ```sql
@@ -592,7 +592,7 @@ CREATE TABLE tags (
     id         BIGSERIAL PRIMARY KEY,
     name       VARCHAR(50) UNIQUE NOT NULL,
     color      VARCHAR(7),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE bugs (
@@ -605,10 +605,17 @@ CREATE TABLE bugs (
                 CHECK (priority IN ('NIEDRIG','MITTEL','HOCH','KRITISCH')),
     reporter_id BIGINT NOT NULL REFERENCES users(id),
     assignee_id BIGINT REFERENCES users(id),
-    tag_id      BIGINT REFERENCES tags(id),
     archived    BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Many-to-Many: ein Bug kann beliebig viele Tags haben, ein Tag kann an
+-- beliebig vielen Bugs hängen.
+CREATE TABLE bug_tags (
+    bug_id BIGINT NOT NULL REFERENCES bugs(id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE RESTRICT,
+    PRIMARY KEY (bug_id, tag_id)
 );
 
 -- Standard-Tags für Demo
@@ -619,10 +626,17 @@ INSERT INTO tags (name, color) VALUES
     ('Feature', '#8B5CF6');
 ```
 
+> **Schema-Entscheidungen:**
+> - **Many-to-Many statt Single-Tag:** Pflichtenheft FA-16 verlangt „Tags verwalten" — wir interpretieren das als „mehrere Tags pro Bug möglich". Die Junction-Table `bug_tags` mit Composite-PK `(bug_id, tag_id)` verhindert duplikate.
+> - **`bug_id ON DELETE CASCADE`:** Bei Hard-Delete eines Bugs (passiert über `archived` normalerweise nicht) verschwinden die Junction-Einträge mit. Sicherheitsnetz.
+> - **`tag_id ON DELETE RESTRICT`:** Admin kann einen Tag nicht löschen, solange er noch zugewiesen ist. Verhindert versehentlichen Datenverlust.
+> - **`TIMESTAMP WITH TIME ZONE` + `CURRENT_TIMESTAMP`:** konsistent mit V1 (Auth-System). Standardwahl für mehrsprachige/multi-region Apps.
+
 **Definition of Done:**
 - Migration läuft fehlerfrei
 - Enum-Constraints aktiv
 - Standard-Tags vorhanden
+- `bug_tags`-Junction-Table mit Composite-PK + FKs angelegt
 
 ---
 
