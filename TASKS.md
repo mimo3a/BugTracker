@@ -687,10 +687,18 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T034 · PUT /api/bugs/{id} Endpoint *(FA-04)*
+### ✅ T034 · PUT /api/bugs/{id} Endpoint *(FA-04)*
 **Was:** Bug bearbeiten (Titel, Beschreibung — Priorität via separatem PATCH, siehe T036b).
 
 **Verhalten:** Erzeugt Activity-Einträge für jedes geänderte Feld.
+
+**Status (10.05.2026, PR #13):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- Authorization: DEVELOPER + ADMIN für jeden Bug, TESTER nur eigenen als Reporter → 403 sonst
+- 409 CONFLICT bei archivierten Bugs (Soft-Delete-Konsistenz mit T035)
+- `priority` aus UpdateBugRequest entfernt — läuft über T036b PATCH /priority
+- OpenAPI auf M:N-Tag-Modell synchronisiert (`tagIds: array`)
+- Activity-Logging folgt mit T057 (blockierte vorher durch T056)
+- Unit-Tests folgen mit T065
 
 ---
 
@@ -997,7 +1005,7 @@ npx tailwindcss init -p
 
 ---
 
-### T056 · V3-Migration: Activity-Tabelle
+### ✅ T056 · V3-Migration: Activity-Tabelle
 ```sql
 CREATE TABLE activities (
     id         BIGSERIAL PRIMARY KEY,
@@ -1007,9 +1015,18 @@ CREATE TABLE activities (
     field      VARCHAR(50),
     old_value  TEXT,
     new_value  TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 ```
+
+**Status (10.05.2026, PR #14):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- `TIMESTAMP WITH TIME ZONE` statt nur `TIMESTAMP` (konsistent mit V1/V2)
+- `DEFAULT CURRENT_TIMESTAMP` statt `NOW()` (Stil-Konsistenz mit V1/V2)
+- Index `idx_activities_bug_created` ergänzt für T058-Performance (composite passt zu `WHERE bug_id ORDER BY created_at DESC`)
+- Branch wurde vor Merge auf aktuellen develop rebased (war von Stand vor T034 abgezweigt)
+- T057 jetzt entblockt
 
 ---
 
