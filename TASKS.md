@@ -285,7 +285,7 @@ Diese Tabelle dient dem Nachweis, dass jede Pflichtenheft-Anforderung implementi
 - `postgresql` (JDBC-Treiber)
 - Test: `junit-jupiter`, `mockito-core`, `spring-boot-starter-test`
 
-> **Hinweis:** Bewusst KEINE `spring-session-jdbc`-Abhängigkeit — Sessions werden in-memory verwaltet (Standard von Spring Security). Kein eigener `spring_session`-Tabelle in der DB.
+> **Hinweis:** Bewusst KEINE `spring-session-jdbc`-Abhängigkeit. Sessions werden über eine eigene `SessionStore`-Komponente in-memory verwaltet (siehe T021). Keine `spring_session`-Tabelle in der DB.
 
 **Definition of Done:**
 - `mvn clean install` läuft fehlerfrei
@@ -400,7 +400,7 @@ CREATE TABLE users (
 );
 ```
 
-> **Korrigiert gegenüber v1.0:** Keine `spring_session`-Tabelle. Sessions liegen in-memory (Standard Spring Security, vgl. T010-Hinweis).
+> **Korrigiert gegenüber v1.0:** Keine `spring_session`-Tabelle. Sessions werden über eine eigene `SessionStore`-Komponente in-memory verwaltet (siehe T021).
 
 **Definition of Done:**
 - Migration läuft beim Backend-Start
@@ -419,25 +419,46 @@ CREATE TABLE users (
 ---
 
 ### T021 · Spring Security Konfiguration
-**Was:** `SecurityConfig.java` — Session-basierte Auth.
+**Was:** `SecurityConfig.java` — Cookie-basierte Auth mit dediziertem `SessionStore`.
 
 **Anforderungen:**
 - Public: `POST /api/auth/login`, `POST /api/auth/register`
 - Geschützt: alle anderen `/api/**`
-- Session-Management: `SessionCreationPolicy.IF_REQUIRED`
+- Session-Management: `SessionCreationPolicy.STATELESS` (kein Spring-`HttpSession`)
+- Sessions werden über eine dedizierte `SessionStore`-Komponente verwaltet (siehe unten)
 - Password-Encoder: `BCryptPasswordEncoder` (cost 10)
 
-> **CSRF-Hinweis (Diskrepanz zum Pflichtenheft NFA-07):**
-> Pflichtenheft NFA-07 nennt "CSRF-Schutz aktiv". Da wir aber Session-Cookies mit `SameSite=Lax` und einem dedizierten REST-API-Frontend nutzen, ist der klassische CSRF-Token-Mechanismus nicht zwingend notwendig — Spring empfiehlt CSRF-Schutz primär für formularbasierte HTML-Anwendungen.
+> **Architektur-Entscheidung (Abweichung von v1.0-Spec):**
+> Statt `SessionCreationPolicy.IF_REQUIRED` mit Spring's `HttpSession` setzen wir auf eine eigene `SessionStore`-Komponente:
+> - **`SessionStore`** (`@Component`, in-memory `ConcurrentHashMap`): erzeugt 32-Byte-Tokens via `SecureRandom`, mappt Token → `Session(userId, username, role)`.
+> - **`SessionAuthFilter`** (`OncePerRequestFilter`): liest `session`-Cookie, lädt aus `SessionStore`, setzt `UsernamePasswordAuthenticationToken` in den `SecurityContextHolder`.
+> - **`SessionCreationPolicy.STATELESS`** signalisiert Spring, keine eigene `HttpSession` anzulegen — die Session-Logik liegt komplett in unserer Komponente.
 >
-> **Entscheidung:** CSRF-Schutz wird für `/api/**`-Endpoints aktiviert (Standard-Spring-Verhalten via `CookieCsrfTokenRepository.withHttpOnlyFalse()`). Frontend muss das CSRF-Token aus dem Cookie lesen und im `X-XSRF-TOKEN`-Header mitsenden. Login- und Register-Endpoints werden vom CSRF-Schutz ausgenommen.
+> **Vorteile:** Kontrolle über Token-Format/Cookie-Flags, keine Abhängigkeit von Spring-Session, einfacher zu testen.
 >
-> Falls dieses Konzept zu komplex erscheint: Alternativ CSRF deaktivieren und im Pflichtenheft NFA-07 die Formulierung anpassen auf "Schutz vor CSRF durch SameSite-Cookies + CORS-Konfiguration".
+> **Bekannte Limitierungen** (im Projektbericht zu nennen):
+> - Sessions im Speicher → bei Backend-Restart sind alle User ausgeloggt
+> - Kein Multi-Instance-Support (nicht kritisch für unser Single-Instance-Deployment)
+> - Kein Session-Timeout/TTL implementiert (kann nachgerüstet werden, wenn nötig)
+
+> **CSRF-Entscheidung (Abweichung von Pflichtenheft NFA-07):**
+> Pflichtenheft NFA-07 nennt "CSRF-Schutz aktiv". Wir setzen stattdessen auf eine Token-/Cookie-Kombination, die für unser Setup (REST-API + SPA-Frontend) ausreichend ist:
+>
+> 1. **`HttpOnly`-Session-Cookie** — JavaScript kann den Session-Token nicht auslesen, also kann eine fremde Seite den Token nicht in einen Header schreiben.
+> 2. **`SameSite=Lax`** — Browser sendet das Cookie bei Cross-Site-`POST`/`PUT`/`DELETE`-Requests **nicht** mit. Das ist exakt der Angriffsvektor, den klassisches CSRF abdecken soll.
+> 3. **CORS mit `allowCredentials=true` + Whitelist** — nur `localhost:5173` (Dev) und ggf. konfigurierte Prod-Origin (siehe Issue 6) dürfen Credentials senden.
+>
+> Spring's CSRF-Schutz (`CookieCsrfTokenRepository`) ist primär für formularbasierte HTML-Anwendungen gedacht. Für eine REST-API mit Session-Cookies bringt er bei vorhandenem `SameSite=Lax` keinen zusätzlichen Schutz, würde aber Frontend-Komplexität (CSRF-Token-Header bei jedem Mutating-Request) erzeugen.
+>
+> **Im Pflichtenheft NFA-07 wird die Formulierung daher angepasst auf:** *„Schutz vor CSRF durch HttpOnly-Cookies + SameSite=Lax + CORS-Whitelist (kein Token-basierter CSRF-Schutz)"*.
+>
+> **Code:** `SecurityConfig.csrf(AbstractHttpConfigurer::disable)` mit Kommentar, der auf diese Entscheidung verweist.
 
 **Definition of Done:**
 - `GET /api/bugs` ohne Login → HTTP 401
 - `POST /api/auth/login` ohne Auth erreichbar
 - CSRF-Verhalten dokumentiert (entweder aktiv mit Frontend-Anpassung oder dokumentiert deaktiviert)
+- `SessionStore` + `SessionAuthFilter` als Komponenten implementiert
 
 ---
 
@@ -496,13 +517,30 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 ---
 
 ### T025 · POST /api/auth/register Endpoint
-**Validierungen:**
-- Username: eindeutig, 3–50 Zeichen
-- Email: valides Format, eindeutig
-- Passwort: mind. 8 Zeichen
-- `passwordConfirm` muss übereinstimmen
+**Request-Payload (alle vier Felder Pflicht):**
+```json
+{
+  "username": "marie",
+  "email": "marie@example.com",
+  "password": "secret123",
+  "passwordConfirm": "secret123"
+}
+```
+
+**Validierungen (via `jakarta.validation`):**
+- Username: `@NotBlank @Size(min=3, max=50)` + Eindeutigkeitsprüfung in DAO
+- Email: `@NotBlank @Email` + Eindeutigkeitsprüfung in DAO
+- Passwort: `@NotBlank @Size(min=8)`
+- `passwordConfirm`: `@NotBlank` + Inline-Match-Check gegen `password`
+
+**Fehler-Responses:**
+- 400 mit Feld-zu-Fehler-Map bei Annotation-Verletzung (über `MethodArgumentNotValidException` → `GlobalExceptionHandler`)
+- 400 `{"error": "Passwörter stimmen nicht überein"}` bei `passwordConfirm`-Mismatch
+- 409 `{"error": "Username or email already taken"}` bei Konflikt
 
 **Default-Rolle:** TESTER · **Implementiert:** US-13 (alle 5 AC)
+
+> **Frontend-Hinweis (T045):** Die Register-Form muss alle vier Felder senden — `passwordConfirm` ist Pflicht und wird sowohl auf NotBlank als auch auf Gleichheit mit `password` geprüft. Ohne dieses Feld wird die Antwort 400 sein.
 
 ---
 
@@ -817,6 +855,16 @@ npx tailwindcss init -p
 
 ### T045 · Register-Seite *(US-13)*
 **Felder:** Username, E-Mail, Passwort, Passwort bestätigen · Validation mit `react-hook-form` + `zod`
+
+**API-Aufruf:** `POST /api/auth/register` mit Body `{ username, email, password, passwordConfirm }` — **alle vier Felder Pflicht**, sonst 400 vom Backend (siehe T025).
+
+**Frontend-seitige Validation (zod-Schema, sollte mit Backend-Regeln übereinstimmen):**
+- `username`: 3–50 Zeichen
+- `email`: valides E-Mail-Format
+- `password`: min. 8 Zeichen
+- `passwordConfirm`: muss `password` entsprechen (`refine`-Check in zod)
+
+**Fehler-Anzeige:** Bei 400 → Feld-spezifische Fehler aus der Response-Map anzeigen (z. B. unter dem jeweiligen Input). Bei 409 → globale Meldung „Username oder E-Mail bereits vergeben".
 
 ---
 

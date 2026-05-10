@@ -27,3 +27,10 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# CORS — http://localhost:5173 ist immer erlaubt (Vite-Dev-Server).
+# Für Prod-Deployment zusätzliche Origin via Env-Variable APP_CORS_ALLOWED_ORIGIN setzen,
+# z.B. APP_CORS_ALLOWED_ORIGIN=https://bugtracker.mci4me.at
+app:
+  cors:
+    allowed-origin: ${APP_CORS_ALLOWED_ORIGIN:}
