@@ -110,21 +110,30 @@ git clone https://git.mci4me.at/gm5410/bugtracker-se2-gr3.git
 cd bugtracker-se2-gr3
 ```
 
-### 2. Datenbank starten (Docker)
+### 2. Backend + Datenbank starten (Docker)
 
 ```bash
 docker compose up -d
 ```
 
+Docker Compose startet PostgreSQL und das Backend.  
 PostgreSQL läuft danach auf `localhost:5432` (User/Passwort/DB jeweils `bugtracker`).  
-Flyway-Migrationen werden beim Backend-Start automatisch ausgeführt.
+Das Backend ist unter `http://localhost:8080` erreichbar. Flyway-Migrationen werden beim Backend-Start automatisch ausgeführt.
 
 **Verifikation:**
 ```bash
-docker compose ps           # postgres-Container muss "healthy" zeigen
+docker compose ps           # postgres muss "healthy" zeigen, backend muss laufen
 ```
 
-### 3. Backend starten
+### 3. Backend lokal mit Maven starten
+
+Wenn das Backend lokal ohne Docker laufen soll, nur PostgreSQL starten:
+
+```bash
+docker compose up -d postgres
+```
+
+Danach das Backend lokal starten:
 
 ```bash
 cd backend

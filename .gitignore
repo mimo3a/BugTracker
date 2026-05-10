@@ -129,7 +129,6 @@ CLAUDE.md
 *.pem
 *.key
 secrets/
-application-prod.yml
 application-secrets.yml
 application-local.yml
 
