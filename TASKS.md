@@ -367,7 +367,7 @@ services:
 
 ---
 
-### T018 · Spring Boot Projekt initialisieren
+### ✅ T018 · Spring Boot Projekt initialisieren
 **Package-Struktur:**
 ```
 at.mci.bugtracker/
@@ -384,7 +384,7 @@ at.mci.bugtracker/
 
 ---
 
-### T019 · Flyway Setup + V1-Migration (User)
+### ✅ T019 · Flyway Setup + V1-Migration (User)
 **Datei:** `src/main/resources/db/migration/V1__init.sql`
 
 ```sql
@@ -409,7 +409,7 @@ CREATE TABLE users (
 
 ---
 
-### T020 · User-Model + UserDao
+### ✅ T020 · User-Model + UserDao
 **Was:** Java Record `User` und DAO mit Methoden `findById`, `findByUsername`, `findByEmail`, `save`, `updateRole`, `findAll`.
 
 **Definition of Done:**
@@ -418,7 +418,7 @@ CREATE TABLE users (
 
 ---
 
-### T021 · Spring Security Konfiguration
+### ✅ T021 · Spring Security Konfiguration
 **Was:** `SecurityConfig.java` — Cookie-basierte Auth mit dediziertem `SessionStore`.
 
 **Anforderungen:**
@@ -489,7 +489,7 @@ public ResponseEntity<Bug> updateBug(...) { ... }
 
 ---
 
-### T022 · CORS-Konfiguration für React-Frontend
+### ✅ T022 · CORS-Konfiguration für React-Frontend
 **Was:** `CorsConfig.java` — Cross-Origin-Requests vom Frontend erlauben.
 
 ```
@@ -502,7 +502,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T023 · POST /api/auth/login Endpoint
+### ✅ T023 · POST /api/auth/login Endpoint
 **Request:** `{ "username": "marie", "password": "secret123" }`
 **Response (Erfolg):** HTTP 200 + User-Daten + Session-Cookie
 **Response (Fehler):** HTTP 401 + `{ "error": "Login fehlgeschlagen" }` (kein Hinweis ob Username existiert)
@@ -511,12 +511,12 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T024 · POST /api/auth/logout Endpoint
+### ✅ T024 · POST /api/auth/logout Endpoint
 **Was:** Invalidiert Session, löscht Cookie. **Implementiert:** US-12 AC3.
 
 ---
 
-### T025 · POST /api/auth/register Endpoint
+### ✅ T025 · POST /api/auth/register Endpoint
 **Request-Payload (alle vier Felder Pflicht):**
 ```json
 {
@@ -544,14 +544,14 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T026 · GET /api/auth/me Endpoint
+### ✅ T026 · GET /api/auth/me Endpoint
 **Was:** Gibt eingeloggten User zurück, im Frontend bei App-Start für Session-Persistenz aufgerufen.
 
 **Implementiert:** US-12 AC4 + AC5
 
 ---
 
-### T027 · Password-Hashing mit BCrypt
+### ✅ T027 · Password-Hashing mit BCrypt
 **Was:** Helper `PasswordHasher` mit `hash()` und `verify()`.
 
 **Anforderungen:** Cost factor ≥ 10 · Niemals Klartext speichern oder loggen
@@ -562,7 +562,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T028 · GlobalExceptionHandler
+### ✅ T028 · GlobalExceptionHandler
 **Was:** `@ControllerAdvice` für einheitliche Fehlerantworten.
 
 | Exception | HTTP | Response |
@@ -584,7 +584,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle + Junction
+### ✅ T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle + Junction
 **Datei:** `V2__bugs.sql`
 
 ```sql
@@ -640,7 +640,7 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T030 · Bug-Model + BugDao
+### ✅ T030 · Bug-Model + BugDao
 **Was:** Java Record `Bug` + DAO.
 
 **BugDao-Methoden:**
@@ -655,7 +655,7 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T031 · POST /api/bugs Endpoint *(FA-01)*
+### ✅ T031 · POST /api/bugs Endpoint *(FA-01)*
 **Request:**
 ```json
 {
@@ -1167,7 +1167,7 @@ PostgreSQL auf Hosting-Plattform · Connection-String als Env-Variable · Flyway
 
 ---
 
-### T074 · Environment-Variablen-Setup
+### ✅ T074 · Environment-Variablen-Setup
 ```
 DATABASE_URL=postgresql://...
 SPRING_PROFILES_ACTIVE=prod
