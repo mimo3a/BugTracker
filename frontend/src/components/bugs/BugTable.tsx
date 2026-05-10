@@ -5,6 +5,7 @@ import {
   type BugPriority,
   type BugStatus,
 } from '../../types/bug'
+import { Link } from 'react-router-dom'
 
 interface BugTableProps {
   bugs: Bug[]
@@ -82,10 +83,12 @@ export function BugTable({ bugs, loading }: BugTableProps) {
                 BUG-{b.id}
               </td>
               <td className="px-3.5 py-3.5 border-b border-border text-[13px] text-ink">
-                {b.title}
+                <Link to={`/bugs/${b.id}`} className="underline-offset-2 hover:underline">
+                  {b.title}
+                </Link>
               </td>
               <td className="px-3.5 py-3.5 border-b border-border text-[13px] text-ink-soft">
-                {b.tagName ?? '—'}
+                {b.tagName ?? b.tagNames?.[0] ?? '-'}
               </td>
               <td className="px-3.5 py-3.5 border-b border-border">
                 <span className={`${pillBase} ${priorityPill[b.priority]}`}>

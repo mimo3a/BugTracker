@@ -1,5 +1,6 @@
 package at.mci.bugtracker.dao;
 
+import at.mci.bugtracker.model.Activity;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
@@ -20,10 +21,13 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.url=jdbc:h2:mem:bugtracker;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
         "spring.flyway.enabled=false"
 })
-@Import(BugDao.class)
+@Import({BugDao.class, ActivityDao.class})
 class BugDaoTest {
     @Autowired
     private BugDao bugDao;
+
+    @Autowired
+    private ActivityDao activityDao;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -31,6 +35,7 @@ class BugDaoTest {
     @BeforeEach
     void setUp() {
         jdbc.execute("DROP TABLE IF EXISTS bug_tags");
+        jdbc.execute("DROP TABLE IF EXISTS bug_activities");
         jdbc.execute("DROP TABLE IF EXISTS bugs");
         jdbc.execute("DROP TABLE IF EXISTS tags");
         jdbc.execute("DROP TABLE IF EXISTS users");
@@ -73,6 +78,18 @@ class BugDaoTest {
                     bug_id BIGINT NOT NULL REFERENCES bugs(id) ON DELETE CASCADE,
                     tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE RESTRICT,
                     PRIMARY KEY (bug_id, tag_id)
+                )
+                """);
+        jdbc.execute("""
+                CREATE TABLE bug_activities (
+                    id BIGSERIAL PRIMARY KEY,
+                    bug_id BIGINT NOT NULL REFERENCES bugs(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(id),
+                    action VARCHAR(50) NOT NULL,
+                    field VARCHAR(50),
+                    old_value TEXT,
+                    new_value TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """);
 
@@ -225,6 +242,25 @@ class BugDaoTest {
     void archiveReturnsFalseForMissingBug() {
         assertThat(bugDao.archive(999L)).isFalse();
         assertThat(bugDao.restore(999L)).isFalse();
+    }
+
+    @Test
+    void activityDaoStoresStatusChangeHistoryEntry() {
+        Bug saved = bugDao.save(newBug("Needs history", BugStatus.NEU, BugPriority.MITTEL, null, List.of()));
+
+        activityDao.insertStatusChanged(saved.id(), 2L, "NEU", "IN_BEARBEITUNG");
+
+        List<Activity> activities = activityDao.findByBugId(saved.id());
+        assertThat(activities).hasSize(1);
+        Activity activity = activities.get(0);
+        assertThat(activity.bugId()).isEqualTo(saved.id());
+        assertThat(activity.userId()).isEqualTo(2L);
+        assertThat(activity.userName()).isEqualTo("marie");
+        assertThat(activity.action()).isEqualTo("STATUS_CHANGED");
+        assertThat(activity.field()).isEqualTo("status");
+        assertThat(activity.oldValue()).isEqualTo("NEU");
+        assertThat(activity.newValue()).isEqualTo("IN_BEARBEITUNG");
+        assertThat(activity.createdAt()).isNotNull();
     }
 
     @Test

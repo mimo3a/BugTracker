@@ -25,8 +25,10 @@ export interface Bug {
   reporterName: string
   assigneeId: number | null
   assigneeName: string | null
-  tagId: number | null
-  tagName: string | null
+  tagId?: number | null
+  tagName?: string | null
+  tagIds?: number[]
+  tagNames?: string[]
   archived: boolean
   createdAt: string
   updatedAt: string

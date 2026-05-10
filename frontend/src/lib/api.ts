@@ -1,4 +1,4 @@
-import type { Bug, BugFilters, BugListResponse, Tag, User } from '../types/bug'
+import type { Bug, BugFilters, BugListResponse, BugStatus, Tag, User } from '../types/bug'
 
 const API_BASE = '/api'
 
@@ -8,7 +8,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
     ...init,
   })
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    let message = `${res.status} ${res.statusText}`
+    try {
+      const body = (await res.json()) as { error?: string; message?: string }
+      message = body.error ?? body.message ?? message
+    } catch {
+      // Keep the HTTP fallback when the response body is not JSON.
+    }
+    throw new Error(message)
+  }
   return res.json() as Promise<T>
 }
 
@@ -26,8 +35,15 @@ function buildBugQuery(filters: BugFilters): string {
 
 export const api = {
   listBugs: (filters: BugFilters) => request<BugListResponse>(`/bugs${buildBugQuery(filters)}`),
+  getBug: (id: number) => request<Bug>(`/bugs/${id}`),
+  updateBugStatus: (id: number, status: BugStatus) =>
+    request<Bug>(`/bugs/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    }),
   listUsers: () => request<User[]>('/users'),
   listTags: () => request<Tag[]>('/tags'),
 }
 
-export type { Bug, BugFilters, BugListResponse, Tag, User }
+export type { Bug, BugFilters, BugListResponse, BugStatus, Tag, User }

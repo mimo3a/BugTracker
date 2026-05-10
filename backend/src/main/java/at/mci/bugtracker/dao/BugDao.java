@@ -160,6 +160,26 @@ public class BugDao {
         return findById(bug.id());
     }
 
+    public Optional<Bug> updateStatus(Long id, BugStatus status) {
+        String sql = """
+                UPDATE bugs
+                   SET status = :status,
+                       archived = CASE WHEN :status = 'ARCHIVIERT' THEN TRUE ELSE archived END,
+                       updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id
+                """;
+
+        int updatedRows = jdbc.update(sql, new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("status", status.name()));
+
+        if (updatedRows == 0) {
+            return Optional.empty();
+        }
+
+        return findById(id);
+    }
+
     public boolean archive(Long id) {
         return setArchived(id, true);
     }
