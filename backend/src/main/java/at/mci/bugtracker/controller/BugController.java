@@ -46,11 +46,18 @@ public class BugController {
             @RequestParam(name = "tagId", required = false) Long tagId,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "archived", defaultValue = "false") boolean archived,
-            @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "pageSize", defaultValue = "" + BugFilter.DEFAULT_PAGE_SIZE) int pageSize
+            @RequestParam(name = "page", defaultValue = "0") int page
     ) {
         Long effectiveAssigneeId = assigneeId != null ? assigneeId : assigneeIdSnakeCase;
-        BugFilter filter = new BugFilter(statuses, priority, effectiveAssigneeId, tagId, search, archived, pageSize);
+        BugFilter filter = new BugFilter(
+                statuses,
+                priority,
+                effectiveAssigneeId,
+                tagId,
+                search,
+                archived,
+                BugFilter.DEFAULT_PAGE_SIZE
+        );
         BugService.BugPage bugPage = bugService.listBugs(filter, Math.max(page, 0));
 
         BugListResponse response = new BugListResponse(

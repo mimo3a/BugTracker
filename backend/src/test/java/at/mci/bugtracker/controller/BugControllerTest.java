@@ -65,6 +65,7 @@ class BugControllerTest {
                         .param("priority", "HOCH")
                         .param("assignee_id", "2")
                         .param("search", " login ")
+                        .param("pageSize", "200")
                         .param("page", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(73))

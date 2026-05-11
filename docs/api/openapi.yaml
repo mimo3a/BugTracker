@@ -208,8 +208,9 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/Priority'
-        - name: assigneeId
+        - name: assignee_id
           in: query
+          description: Nach Bearbeiter-ID filtern
           schema:
             type: integer
             format: int64
@@ -235,13 +236,6 @@ paths:
             type: integer
             default: 0
             minimum: 0
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-            default: 50
-            minimum: 1
-            maximum: 200
       responses:
         '200':
           description: Bug-Liste
