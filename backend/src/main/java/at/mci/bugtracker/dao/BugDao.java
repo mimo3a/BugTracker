@@ -60,7 +60,7 @@ public class BugDao {
 
         String sql = SELECT_WITH_JOINS
                 + whereClause
-                + " ORDER BY b.updated_at DESC, b.id DESC LIMIT :limit OFFSET :offset";
+                + " ORDER BY b.created_at DESC, b.id DESC LIMIT :limit OFFSET :offset";
 
         List<Bug> bugs = jdbc.query(sql, parameters, new BugRowMapper());
         return enrichWithTags(bugs);

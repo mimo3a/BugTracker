@@ -1,22 +1,31 @@
 package at.mci.bugtracker.controller;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import at.mci.bugtracker.auth.CurrentSession;
 import at.mci.bugtracker.auth.SessionStore;
+import at.mci.bugtracker.controller.dto.BugListResponse;
 import at.mci.bugtracker.controller.dto.BugResponse;
 import at.mci.bugtracker.controller.dto.CreateBugRequest;
 import at.mci.bugtracker.controller.dto.UpdateBugRequest;
 import at.mci.bugtracker.model.Bug;
+import at.mci.bugtracker.model.BugFilter;
+import at.mci.bugtracker.model.BugPriority;
+import at.mci.bugtracker.model.BugStatus;
 import at.mci.bugtracker.service.BugService;
 import jakarta.validation.Valid;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bugs")
@@ -26,6 +35,32 @@ public class BugController {
 
     public BugController(BugService bugService) {
         this.bugService = bugService;
+    }
+
+    @GetMapping
+    public ResponseEntity<BugListResponse> listBugs(
+            @RequestParam(name = "status", required = false) List<BugStatus> statuses,
+            @RequestParam(name = "priority", required = false) BugPriority priority,
+            @RequestParam(name = "assigneeId", required = false) Long assigneeId,
+            @RequestParam(name = "assignee_id", required = false) Long assigneeIdSnakeCase,
+            @RequestParam(name = "tagId", required = false) Long tagId,
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "archived", defaultValue = "false") boolean archived,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "pageSize", defaultValue = "" + BugFilter.DEFAULT_PAGE_SIZE) int pageSize
+    ) {
+        Long effectiveAssigneeId = assigneeId != null ? assigneeId : assigneeIdSnakeCase;
+        BugFilter filter = new BugFilter(statuses, priority, effectiveAssigneeId, tagId, search, archived, pageSize);
+        BugService.BugPage bugPage = bugService.listBugs(filter, Math.max(page, 0));
+
+        BugListResponse response = new BugListResponse(
+                bugPage.bugs().stream().map(this::toResponse).toList(),
+                bugPage.total(),
+                bugPage.page(),
+                bugPage.pageSize()
+        );
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping
