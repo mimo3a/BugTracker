@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import {
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -73,6 +74,7 @@ export function BugTable({ bugs, loading }: BugTableProps) {
             <th className="text-left px-3.5 py-3 text-[11px] font-semibold uppercase tracking-[0.6px] text-ink-soft border-b border-border w-32">
               Assignee
             </th>
+            <th className="px-3.5 py-3 border-b border-border w-16"></th>
           </tr>
         </thead>
         <tbody>
@@ -102,6 +104,14 @@ export function BugTable({ bugs, loading }: BugTableProps) {
               </td>
               <td className="px-3.5 py-3.5 border-b border-border text-[13px] text-ink-soft">
                 {b.assigneeName ?? <span className="italic">unassigned</span>}
+              </td>
+              <td className="px-3.5 py-3.5 border-b border-border text-[13px]">
+                <Link
+                  to={`/bugs/${b.id}/edit`}
+                  className="text-ink-soft hover:text-ink underline-offset-2 hover:underline"
+                >
+                  edit
+                </Link>
               </td>
             </tr>
           ))}

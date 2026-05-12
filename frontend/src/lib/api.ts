@@ -57,12 +57,24 @@ export interface CreateBugInput {
   tagIds: number[]
 }
 
+export interface UpdateBugInput {
+  title: string
+  description: string
+  tagIds: number[]
+}
+
 export const api = {
   // bugs
   listBugs: (filters: BugFilters) => request<BugListResponse>(`/bugs${buildBugQuery(filters)}`),
   createBug: (input: CreateBugInput) =>
     request<Bug>('/bugs', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+  updateBug: (id: number, input: UpdateBugInput) =>
+    request<Bug>(`/bugs/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     }),
