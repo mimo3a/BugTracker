@@ -719,18 +719,23 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
+### ✅ T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
 **State-Machine (erlaubte Übergänge):**
-- `NEU → IN_BEARBEITUNG, ABGELEHNT`
-- `IN_BEARBEITUNG → IM_REVIEW, ABGELEHNT`
-- `IM_REVIEW → ERLEDIGT, IN_BEARBEITUNG, ABGELEHNT`
+- `NEU → IN_BEARBEITUNG, ARCHIVIERT`
+- `IN_BEARBEITUNG → IM_REVIEW, ARCHIVIERT`
+- `IM_REVIEW → ERLEDIGT, ABGELEHNT, ARCHIVIERT`
 - `ERLEDIGT → ARCHIVIERT`
 - `ABGELEHNT → ARCHIVIERT`
-- Alle Status `→ ARCHIVIERT`
+- `ARCHIVIERT → (terminal, Restore via T035)`
 
-**Verbotener Übergang:** HTTP 400 + `{ "error": "Ungültiger Statuswechsel von ERLEDIGT zu NEU" }`
+**Verbotener Übergang:** HTTP 409 (Conflict) + `{ "error": "Status-Wechsel nicht erlaubt: ERLEDIGT → NEU" }`
 
-**Implementation:** Eigene Service-Klasse `StatusTransitionValidator` (siehe T065 Unit-Test).
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `service/BugStatusStateMachine.java` als @Component
+- DEVELOPER + ADMIN dürfen, TESTER → 403
+- Activity-Tracking automatisch (T057)
+- 6 BugStatusStateMachineTest + Live-Test gegen Postgres
+- Status-Code-Änderung vs. Spec: 409 statt 400 (semantisch korrekter — Request war wohlgeformt, Server-State erlaubt's nicht)
 
 ---
 
@@ -934,8 +939,15 @@ npx tailwindcss init -p
 
 ---
 
-### T048 · Bug-Erstellen-Formular *(US-01)*
+### ✅ T048 · Bug-Erstellen-Formular *(US-01)*
 **Felder:** Titel (Pflicht), Beschreibung (Pflicht), Priorität (optional), Tag (optional)
+
+**Status (12.05.2026, PR #17):** Implementiert (Maksim).
+- `pages/BugCreatePage.tsx` — Form mit Title (max 255 + Live-Counter), Description, Priority-Dropdown, Tags als Toggle-Buttons
+- `lib/api.ts`: `api.createBug()` + `CreateBugInput`-Type
+- `lib/seedTags.ts`: 4 Seed-Tags aus V2-Migration hardcoded (TODO → T038a für `GET /api/tags`)
+- Route `/bugs/new` mit `ProtectedRoute`, „+ new"-Button im BugListPage-Header
+- Mit-gefixt: BugDao-Bug in BugRowMapper (`TIMESTAMP WITH TIME ZONE` → `OffsetDateTime` statt direkt `LocalDateTime`, sonst PSQLException sobald Tabelle nicht leer)
 
 ---
 
@@ -1054,15 +1066,28 @@ CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 
 ---
 
-### T057 · ActivityDao + Activity-Tracking in BugService
+### ✅ T057 · ActivityDao + Activity-Tracking in BugService
 **Was:** Bei jedem Bug-Update automatisch Activity-Einträge erzeugen.
 
-**Erfasste Änderungen:** Status, Priorität, Bearbeiter, Titel, Beschreibung, Tag
+**Erfasste Änderungen:** Status, Titel, Beschreibung, Tag (Priorität + Bearbeiter folgen mit T036b + T037)
+
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `model/Activity.java` Record mit polymorphem action/field/old/new Schema
+- `dao/ActivityDao.java`: insert + findByBugId, nutzt Index aus T056
+- `service/BugService.java`: createBug logt CREATED, updateBug logt UPDATED pro geändertem Feld, updateStatus logt UPDATED-status
+- `@Transactional` auf alle Write-Methoden — atomar Bug + Activity
+- 5 ActivityDaoTest + Live-Test gegen Postgres
 
 ---
 
-### T058 · GET /api/bugs/{id}/activities Endpoint
+### ✅ T058 · GET /api/bugs/{id}/activities Endpoint
 **Was:** Chronologische Liste (neueste oben).
+
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `service/ActivityService.java` mit Existenz-Check auf Bug (404 statt leere Liste)
+- `controller/ActivityController.java` mit GET-Endpoint
+- `controller/dto/ActivityResponse.java` als API-Form
+- Auth: jeder authentifizierte User darf lesen
 
 ---
 
