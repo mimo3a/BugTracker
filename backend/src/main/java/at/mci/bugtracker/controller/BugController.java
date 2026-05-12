@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,7 +18,10 @@ import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.controller.dto.BugListResponse;
 import at.mci.bugtracker.controller.dto.BugResponse;
 import at.mci.bugtracker.controller.dto.CreateBugRequest;
+import at.mci.bugtracker.controller.dto.UpdateAssigneeRequest;
 import at.mci.bugtracker.controller.dto.UpdateBugRequest;
+import at.mci.bugtracker.controller.dto.UpdatePriorityRequest;
+import at.mci.bugtracker.controller.dto.UpdateStatusRequest;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
@@ -86,6 +90,36 @@ public class BugController {
     ) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.updateBug(id, request, session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/status")
+    public BugResponse updateStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateStatusRequest request
+    ) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.updateStatus(id, request.status(), session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/priority")
+    public BugResponse updatePriority(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePriorityRequest request
+    ) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.updatePriority(id, request.priority(), session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/assignee")
+    public BugResponse updateAssignee(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateAssigneeRequest request
+    ) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.updateAssignee(id, request.assigneeId(), session.userId());
         return toResponse(bug);
     }
 

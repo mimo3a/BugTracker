@@ -2,8 +2,10 @@ package at.mci.bugtracker.service;
 
 import at.mci.bugtracker.controller.dto.CreateBugRequest;
 import at.mci.bugtracker.controller.dto.UpdateBugRequest;
+import at.mci.bugtracker.dao.ActivityDao;
 import at.mci.bugtracker.dao.BugDao;
 import at.mci.bugtracker.dao.UserDao;
+import at.mci.bugtracker.model.Activity;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
@@ -12,19 +14,23 @@ import at.mci.bugtracker.model.User;
 import at.mci.bugtracker.model.UserRole;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class BugService {
 
     private final BugDao bugDao;
     private final UserDao userDao;
+    private final ActivityDao activityDao;
 
-    public BugService(BugDao bugDao, UserDao userDao) {
+    public BugService(BugDao bugDao, UserDao userDao, ActivityDao activityDao) {
         this.bugDao = bugDao;
         this.userDao = userDao;
+        this.activityDao = activityDao;
     }
 
     public Bug createBug(CreateBugRequest request, long reporterId) {
@@ -59,30 +65,15 @@ public class BugService {
         return new BugPage(bugs, total, effectivePage, effectiveFilter.pageSize());
     }
 
-
+    @Transactional
     public Bug updateBug(Long id, UpdateBugRequest request, long userId) {
-        Bug existing = bugDao.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
-
-        if (existing.archived()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Archivierter Bug kann nicht bearbeitet werden");
-        }
-
-        // FA-04: DEVELOPER + ADMIN dürfen jeden Bug editieren; TESTER (Reporter-Rolle)
-        // nur den eigenen Bug. Spec: docs/api/openapi.yaml PUT /api/bugs/{id}
-        User actor = userDao.findById(userId);
-        if (actor == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session ungültig");
-        }
-        boolean privileged = actor.role() == UserRole.ADMIN || actor.role() == UserRole.DEVELOPER;
-        boolean ownReport = actor.role() == UserRole.TESTER && existing.reporterId() == userId;
-        if (!privileged && !ownReport) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, diesen Bug zu bearbeiten");
-        }
+        Bug existing = findEditableBug(id);
+        User actor = requireActor(userId);
+        requireCanEdit(existing, actor);
 
         List<Long> tagIds = request.tagIds() != null ? request.tagIds() : existing.tagIds();
 
-        // Priority bleibt unverändert — sie wird über PATCH /api/bugs/{id}/priority gesetzt.
+        // Priority/Status/Assignee bleiben unveraendert und laufen ueber eigene PATCH-Endpunkte.
         Bug updated = new Bug(
                 existing.id(),
                 request.title(),
@@ -99,7 +90,129 @@ public class BugService {
                 existing.createdAt(),
                 existing.updatedAt()
         );
-        return bugDao.update(updated)
+
+        Bug saved = bugDao.update(updated)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+        recordChange(saved.id(), actor.id(), "title", "TITLE_CHANGED", existing.title(), saved.title());
+        recordChange(saved.id(), actor.id(), "description", "DESCRIPTION_CHANGED", existing.description(), saved.description());
+        recordChange(saved.id(), actor.id(), "tagIds", "TAGS_CHANGED", existing.tagIds(), saved.tagIds());
+        return saved;
+    }
+
+    @Transactional
+    public Bug updateStatus(Long id, BugStatus status, long userId) {
+        Bug existing = findEditableBug(id);
+        User actor = requireActor(userId);
+        requirePrivileged(actor);
+
+        Bug saved = updateExisting(copyWith(existing, status, existing.priority(), existing.assigneeId()));
+        recordChange(saved.id(), actor.id(), "status", "STATUS_CHANGED", existing.status(), saved.status());
+        return saved;
+    }
+
+    @Transactional
+    public Bug updatePriority(Long id, BugPriority priority, long userId) {
+        Bug existing = findEditableBug(id);
+        User actor = requireActor(userId);
+        requirePrivileged(actor);
+
+        Bug saved = updateExisting(copyWith(existing, existing.status(), priority, existing.assigneeId()));
+        recordChange(saved.id(), actor.id(), "priority", "PRIORITY_CHANGED", existing.priority(), saved.priority());
+        return saved;
+    }
+
+    @Transactional
+    public Bug updateAssignee(Long id, Long assigneeId, long userId) {
+        Bug existing = findEditableBug(id);
+        User actor = requireActor(userId);
+        requirePrivileged(actor);
+        if (assigneeId != null && userDao.findById(assigneeId) == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bearbeiter nicht gefunden");
+        }
+
+        Bug saved = updateExisting(copyWith(existing, existing.status(), existing.priority(), assigneeId));
+        recordChange(saved.id(), actor.id(), "assignee", "ASSIGNEE_CHANGED", existing.assigneeId(), saved.assigneeId());
+        return saved;
+    }
+
+    private Bug updateExisting(Bug bug) {
+        return bugDao.update(bug)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+    }
+
+    private Bug findEditableBug(Long id) {
+        Bug existing = bugDao.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+        if (existing.archived()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Archivierter Bug kann nicht bearbeitet werden");
+        }
+        return existing;
+    }
+
+    private User requireActor(long userId) {
+        User actor = userDao.findById(userId);
+        if (actor == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session ungueltig");
+        }
+        return actor;
+    }
+
+    private void requireCanEdit(Bug existing, User actor) {
+        // FA-04: DEVELOPER + ADMIN duerfen jeden Bug editieren; TESTER nur den eigenen Bug.
+        boolean privileged = isPrivileged(actor);
+        boolean ownReport = actor.role() == UserRole.TESTER && existing.reporterId() == actor.id();
+        if (!privileged && !ownReport) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, diesen Bug zu bearbeiten");
+        }
+    }
+
+    private void requirePrivileged(User actor) {
+        if (!isPrivileged(actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, diesen Bug zu bearbeiten");
+        }
+    }
+
+    private boolean isPrivileged(User actor) {
+        return actor.role() == UserRole.ADMIN || actor.role() == UserRole.DEVELOPER;
+    }
+
+    private Bug copyWith(Bug existing, BugStatus status, BugPriority priority, Long assigneeId) {
+        return new Bug(
+                existing.id(),
+                existing.title(),
+                existing.description(),
+                status,
+                priority,
+                existing.reporterId(),
+                existing.reporterName(),
+                assigneeId,
+                existing.assigneeName(),
+                existing.tagIds(),
+                existing.tagNames(),
+                existing.archived(),
+                existing.createdAt(),
+                existing.updatedAt()
+        );
+    }
+
+    private void recordChange(Long bugId, long userId, String field, String action, Object oldValue, Object newValue) {
+        if (Objects.equals(oldValue, newValue)) {
+            return;
+        }
+        activityDao.save(new Activity(
+                null,
+                bugId,
+                userId,
+                null,
+                action,
+                field,
+                valueOf(oldValue),
+                valueOf(newValue),
+                null
+        ));
+    }
+
+    private String valueOf(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 }
