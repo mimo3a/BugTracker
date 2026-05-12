@@ -60,7 +60,7 @@ public class BugDao {
 
         String sql = SELECT_WITH_JOINS
                 + whereClause
-                + " ORDER BY b.updated_at DESC, b.id DESC LIMIT :limit OFFSET :offset";
+                + " ORDER BY b.created_at DESC, b.id DESC LIMIT :limit OFFSET :offset";
 
         List<Bug> bugs = jdbc.query(sql, parameters, new BugRowMapper());
         return enrichWithTags(bugs);
@@ -266,9 +266,10 @@ public class BugDao {
             conditions.add("b.assignee_id = :assigneeId");
             parameters.addValue("assigneeId", filter.assigneeId());
         }
-        if (filter.tagId() != null) {
-            conditions.add("EXISTS (SELECT 1 FROM bug_tags bt WHERE bt.bug_id = b.id AND bt.tag_id = :tagId)");
-            parameters.addValue("tagId", filter.tagId());
+        if (!filter.tagIds().isEmpty()) {
+            // OR-Semantik: Bug matched, wenn er MINDESTENS EINEN der Filter-Tags hat.
+            conditions.add("EXISTS (SELECT 1 FROM bug_tags bt WHERE bt.bug_id = b.id AND bt.tag_id IN (:tagIds))");
+            parameters.addValue("tagIds", filter.tagIds());
         }
         if (filter.search() != null && !filter.search().isBlank()) {
             conditions.add("LOWER(b.title) LIKE :search");

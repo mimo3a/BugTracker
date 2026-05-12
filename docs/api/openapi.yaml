@@ -210,14 +210,20 @@ paths:
             $ref: '#/components/schemas/Priority'
         - name: assigneeId
           in: query
+          description: Nach Bearbeiter-ID filtern
           schema:
             type: integer
             format: int64
-        - name: tagId
+        - name: tagIds
           in: query
+          description: Nach Tag-IDs filtern (multi, OR-Semantik — Bug matched, wenn mind. ein Tag passt)
           schema:
-            type: integer
-            format: int64
+            type: array
+            items:
+              type: integer
+              format: int64
+          style: form
+          explode: true
         - name: search
           in: query
           description: Volltext-Suche im Titel (FA-10, T060)
@@ -235,13 +241,6 @@ paths:
             type: integer
             default: 0
             minimum: 0
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-            default: 50
-            minimum: 1
-            maximum: 200
       responses:
         '200':
           description: Bug-Liste

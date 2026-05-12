@@ -5,6 +5,7 @@ import at.mci.bugtracker.controller.dto.UpdateBugRequest;
 import at.mci.bugtracker.dao.BugDao;
 import at.mci.bugtracker.dao.UserDao;
 import at.mci.bugtracker.model.Bug;
+import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
 import at.mci.bugtracker.model.BugStatus;
 import at.mci.bugtracker.model.User;
@@ -47,6 +48,17 @@ public class BugService {
         );
         return bugDao.save(bug);
     }
+
+    public BugPage listBugs(BugFilter filter, int page) {
+        BugFilter effectiveFilter = filter == null ? BugFilter.empty() : filter;
+        int effectivePage = Math.max(page, 0);
+
+        List<Bug> bugs = bugDao.findAll(effectiveFilter, effectivePage);
+        long total = bugDao.count(effectiveFilter);
+
+        return new BugPage(bugs, total, effectivePage, effectiveFilter.pageSize());
+    }
+
 
     public Bug updateBug(Long id, UpdateBugRequest request, long userId) {
         Bug existing = bugDao.findById(id)

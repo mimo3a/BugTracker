@@ -239,7 +239,7 @@ class BugDaoTest {
                 List.of(BugStatus.NEU),
                 BugPriority.HOCH,
                 2L,
-                1L,
+                List.of(1L),
                 "login",
                 false,
                 50
@@ -260,10 +260,26 @@ class BugDaoTest {
         bugDao.save(newBug("Multi-tag", BugStatus.NEU, BugPriority.MITTEL, null, List.of(1L, 2L)));
         bugDao.save(newBug("Single-other-tag", BugStatus.NEU, BugPriority.MITTEL, null, List.of(3L)));
 
-        BugFilter filterByBackend = new BugFilter(List.of(), null, null, 1L, null, false, 50);
+        BugFilter filterByBackend = new BugFilter(List.of(), null, null, List.of(1L), null, false, 50);
         List<Bug> matched = bugDao.findAll(filterByBackend, 0);
 
         assertThat(matched).extracting(Bug::title).containsExactly("Multi-tag");
+    }
+
+    @Test
+    void findAllMultiTagFilterUsesOrSemantics() {
+        // OR-Semantik: Bug taucht auf, wenn er MINDESTENS EINEN der Filter-Tags hat.
+        bugDao.save(newBug("Has tag 1", BugStatus.NEU, BugPriority.MITTEL, null, List.of(1L)));
+        bugDao.save(newBug("Has tag 3", BugStatus.NEU, BugPriority.MITTEL, null, List.of(3L)));
+        bugDao.save(newBug("Has tag 2 only", BugStatus.NEU, BugPriority.MITTEL, null, List.of(2L)));
+
+        BugFilter filter = new BugFilter(List.of(), null, null, List.of(1L, 3L), null, false, 50);
+        List<Bug> matched = bugDao.findAll(filter, 0);
+
+        assertThat(matched)
+                .extracting(Bug::title)
+                .containsExactlyInAnyOrder("Has tag 1", "Has tag 3");
+        assertThat(bugDao.count(filter)).isEqualTo(2);
     }
 
     @Test
@@ -273,7 +289,7 @@ class BugDaoTest {
         bugDao.archive(archived.id());
 
         List<Bug> defaultResult = bugDao.findAll(BugFilter.empty(), 0);
-        BugFilter includeArchived = new BugFilter(List.of(), null, null, null, null, true, 50);
+        BugFilter includeArchived = new BugFilter(List.of(), null, null, List.of(), null, true, 50);
 
         assertThat(defaultResult).extracting(Bug::id).containsExactly(active.id());
         assertThat(bugDao.findAll(includeArchived, 0)).extracting(Bug::id).contains(archived.id(), active.id());
@@ -285,7 +301,7 @@ class BugDaoTest {
         Bug second = bugDao.save(newBug("Second", BugStatus.NEU, BugPriority.MITTEL, null, List.of()));
         Bug third = bugDao.save(newBug("Third", BugStatus.NEU, BugPriority.MITTEL, null, List.of()));
 
-        BugFilter filter = new BugFilter(List.of(), null, null, null, null, false, 2);
+        BugFilter filter = new BugFilter(List.of(), null, null, List.of(), null, false, 2);
 
         assertThat(bugDao.findAll(filter, 0)).extracting(Bug::id).containsExactly(third.id(), second.id());
         assertThat(bugDao.findAll(filter, 1)).extracting(Bug::id).containsExactly(first.id());
