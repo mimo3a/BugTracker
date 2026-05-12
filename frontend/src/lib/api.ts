@@ -50,9 +50,22 @@ interface LoginBody {
   password: string
 }
 
+export interface CreateBugInput {
+  title: string
+  description: string
+  priority: Bug['priority']
+  tagIds: number[]
+}
+
 export const api = {
   // bugs
   listBugs: (filters: BugFilters) => request<BugListResponse>(`/bugs${buildBugQuery(filters)}`),
+  createBug: (input: CreateBugInput) =>
+    request<Bug>('/bugs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
   listUsers: () => request<User[]>('/users'),
   listTags: () => request<Tag[]>('/tags'),
 

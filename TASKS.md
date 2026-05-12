@@ -872,17 +872,30 @@ npx tailwindcss init -p
 
 ---
 
-### T043 · Auth-Context + AuthProvider
+### ✅ T043 · Auth-Context + AuthProvider
 **Was:** React Context mit `user`, `loading`, `login()`, `logout()`.
 
 **Verhalten:** Beim App-Start `GET /api/auth/me` → User bleibt nach Page-Reload eingeloggt.
 
 **Implementiert:** US-12 AC5
 
+**Status (12.05.2026, PR #16):** Implementiert (Maksim).
+- `context/AuthContext.tsx` mit `AuthProvider` + `useAuth`-Hook
+- Auto-Restore via `GET /api/auth/me` beim App-Mount
+- `components/ProtectedRoute.tsx` als Route-Guard (redirect → /login wenn unauth)
+
 ---
 
-### T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
+### ✅ T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
 **Felder:** Username, Passwort · Bei Erfolg Redirect zu `/bugs` · Bei Fehler Meldung + Passwort-Feld leeren
+
+**Status (12.05.2026, PR #16):** Implementiert (Maksim).
+- `pages/LoginPage.tsx` mit username/password Form
+- 401 → "Falscher Benutzername oder Passwort" (deutsch)
+- BugListPage-Header: User-Anzeige (`username · role`) + Logout-Button
+- `ApiError`-Klasse für status-spezifische Fehler-Behandlung im UI
+- Mit-gefixt: UserDao-Bug in `findByUsername`/`findById`/`findByEmail`/`findAll` (SELECT-Spalten passten nicht zum ResultSet-Mapping, Login warf 500)
+- Mit-gefixt: Frontend-Bug-Type auf M:N-Tags (`tagIds`/`tagNames` Arrays) aligned mit Backend nach T029
 
 ---
 

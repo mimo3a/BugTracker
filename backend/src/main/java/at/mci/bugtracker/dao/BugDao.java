@@ -17,6 +17,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -301,9 +302,18 @@ public class BugDao {
                     List.of(),
                     List.of(),
                     rs.getBoolean("archived"),
-                    rs.getObject("created_at", LocalDateTime.class),
-                    rs.getObject("updated_at", LocalDateTime.class)
+                    toLocalDateTime(rs, "created_at"),
+                    toLocalDateTime(rs, "updated_at")
             );
+        }
+
+        // Postgres-Spalte ist TIMESTAMP WITH TIME ZONE. Der JDBC-Treiber wirft
+        // PSQLException beim direkten Mappen auf LocalDateTime, also erst als
+        // OffsetDateTime lesen und dann konvertieren (H2 ist toleranter, deshalb
+        // fiel das im BugDaoTest mit Embedded-H2 nicht auf).
+        private static LocalDateTime toLocalDateTime(ResultSet rs, String column) throws SQLException {
+            OffsetDateTime odt = rs.getObject(column, OffsetDateTime.class);
+            return odt == null ? null : odt.toLocalDateTime();
         }
 
         private static Long nullableLong(ResultSet rs, String column) throws SQLException {

@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { BugListPage } from './pages/BugListPage'
+import { BugCreatePage } from './pages/BugCreatePage'
 
 export default function App() {
   return (
@@ -15,6 +16,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <BugListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bugs/new"
+            element={
+              <ProtectedRoute>
+                <BugCreatePage />
               </ProtectedRoute>
             }
           />

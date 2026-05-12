@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { BugTable } from '../components/bugs/BugTable'
 import { FilterBar } from '../components/bugs/FilterBar'
 import { ThemeToggle } from '../components/ThemeToggle'
@@ -32,6 +33,12 @@ export function BugListPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              to="/bugs/new"
+              className="font-mono text-xs bg-ink text-bg rounded px-2 py-1 hover:opacity-90"
+            >
+              + new
+            </Link>
             {user && (
               <span className="font-mono text-xs text-ink-soft">
                 {user.username} · <span className="lowercase">{user.role}</span>
