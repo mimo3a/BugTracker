@@ -224,7 +224,7 @@ bugtracker-se2-gr3/
 │   │       ├── db/migration/    # Flyway SQL-Migrationen     (geplant E3+)
 │   │       └── application.yml
 │   └── pom.xml
-├── frontend/                    # React-SPA                  (geplant E5)
+├── frontend/                    # React-SPA                  (geplant E5)E
 │   ├── src/
 │   │   ├── pages/               # Seiten (Login, Bugs, Detail, …)
 │   │   ├── components/          # Wiederverwendbare Komponenten
