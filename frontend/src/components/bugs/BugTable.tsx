@@ -85,7 +85,7 @@ export function BugTable({ bugs, loading }: BugTableProps) {
                 {b.title}
               </td>
               <td className="px-3.5 py-3.5 border-b border-border text-[13px] text-ink-soft">
-                {b.tagName ?? '—'}
+                {b.tagNames.length > 0 ? b.tagNames.join(', ') : '—'}
               </td>
               <td className="px-3.5 py-3.5 border-b border-border">
                 <span className={`${pillBase} ${priorityPill[b.priority]}`}>

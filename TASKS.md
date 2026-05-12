@@ -316,8 +316,10 @@ services:
 
 ---
 
-### T012 · Dockerfile für Backend
+### ✅ T012 · Dockerfile für Backend
 **Was:** Multi-Stage Dockerfile.
+
+**Status (09.05.2026, PR #8):** Implementiert + gemerged.
 
 **Anforderungen:** Image-Größe < 300 MB
 
@@ -672,13 +674,22 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
-**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagId`, `search`, `page`, `archived`
+### ✅ T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
+**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagIds` (multi, OR-Semantik), `search`, `page`, `archived`
 
 **Response:**
 ```json
 { "bugs": [...], "total": 73, "page": 0, "pageSize": 50 }
 ```
+
+**Status (12.05.2026, PR #15):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- Sortierung `created_at DESC, id DESC` als Default
+- `pageSize` fest bei 50 (nicht client-konfigurierbar — MVP-Entscheidung)
+- snake_case-Alias `assignee_id` entfernt — durchgängig camelCase
+- `tagId` (single) → `tagIds` (List<Long>) mit OR-Semantik für Multi-Tag-Filter
+- `BugPage` als eigene Datei `service/BugPage.java` (statt nested Record)
+- Alle authentifizierten User dürfen lesen — Rollen-Restriktion nur beim Editieren (T034)
+- 40/40 Tests grün (BugControllerTest + erweiterter BugDaoTest mit Multi-Tag-OR-Test)
 
 ---
 

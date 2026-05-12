@@ -1,10 +1,12 @@
 import { BugTable } from '../components/bugs/BugTable'
 import { FilterBar } from '../components/bugs/FilterBar'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { useAuth } from '../context/AuthContext'
 import { useBugFilters } from '../hooks/useBugFilters'
 import { useBugs, useFilterOptions } from '../hooks/useBugs'
 
 export function BugListPage() {
+  const { user, logout } = useAuth()
   const { filters, setFilters, reset, isDirty } = useBugFilters()
   const { users, tags } = useFilterOptions()
   const { bugs, total, loading, usingMock } = useBugs(filters)
@@ -29,7 +31,21 @@ export function BugListPage() {
               )}
             </p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            {user && (
+              <span className="font-mono text-xs text-ink-soft">
+                {user.username} · <span className="lowercase">{user.role}</span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={logout}
+              className="font-mono text-xs text-ink-soft hover:text-ink border border-border rounded px-2 py-1"
+            >
+              logout
+            </button>
+            <ThemeToggle />
+          </div>
         </header>
 
         <FilterBar
