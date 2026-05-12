@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,6 +45,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(EntityNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Not found"));
+    }
+
+    // ResponseStatusException explizit BEFORE der Exception-Catch-All — sonst
+    // würde der generische Handler 4xx/5xx-Codes aus dem Service-Layer zu 500
+    // überschreiben. Spring's eingebauter ResponseStatusExceptionResolver
+    // greift NICHT, sobald ein @RestControllerAdvice mit Exception.class
+    // registriert ist.
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
+        String reason = ex.getReason();
+        return ResponseEntity
+                .status(ex.getStatusCode())
+                .body(new ErrorResponse(reason != null ? reason : ex.getStatusCode().toString()));
     }
 
     @ExceptionHandler(Exception.class)

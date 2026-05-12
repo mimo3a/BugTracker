@@ -411,20 +411,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Bug'
-        '400':
-          description: Ungültiger Statuswechsel
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: Ungültiger Statuswechsel von ERLEDIGT zu NEU
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            Statuswechsel nicht erlaubt (State-Machine-Verletzung) ODER
+            Bug ist archiviert. Im Body steht welcher.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                stateMachine:
+                  value:
+                    error: "Status-Wechsel nicht erlaubt: ERLEDIGT → NEU"
+                archived:
+                  value:
+                    error: "Archivierter Bug kann nicht bearbeitet werden"
 
   /api/bugs/{id}/priority:
     parameters:
