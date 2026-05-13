@@ -19,6 +19,7 @@ import at.mci.bugtracker.controller.dto.BugListResponse;
 import at.mci.bugtracker.controller.dto.BugResponse;
 import at.mci.bugtracker.controller.dto.CreateBugRequest;
 import at.mci.bugtracker.controller.dto.UpdateBugRequest;
+import at.mci.bugtracker.controller.dto.UpdateAssigneeRequest;
 import at.mci.bugtracker.controller.dto.UpdateStatusRequest;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
@@ -104,6 +105,16 @@ public class BugController {
     ) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.updateStatus(id, request.status(), session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/assignee")
+    public BugResponse updateAssignee(
+            @PathVariable Long id,
+            @RequestBody UpdateAssigneeRequest request
+    ) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.updateAssignee(id, request.assigneeId(), session.userId());
         return toResponse(bug);
     }
 

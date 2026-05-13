@@ -153,6 +153,46 @@ public class BugService {
     }
 
     @Transactional
+    public Bug updateAssignee(Long id, Long newAssigneeId, long userId) {
+        Bug existing = requireEditable(id);
+        User actor = requireActor(userId);
+        if (!isPrivileged(actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, Bearbeiter zu ändern");
+        }
+
+        String newAssigneeName = null;
+        if (newAssigneeId != null) {
+            User assignee = userDao.findById(newAssigneeId);
+            if (assignee == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Benutzer nicht gefunden");
+            }
+            newAssigneeName = assignee.username();
+        }
+
+        Bug updated = new Bug(
+                existing.id(),
+                existing.title(),
+                existing.description(),
+                existing.status(),
+                existing.priority(),
+                existing.reporterId(),
+                existing.reporterName(),
+                newAssigneeId,
+                newAssigneeName,
+                existing.tagIds(),
+                existing.tagNames(),
+                existing.archived(),
+                existing.createdAt(),
+                existing.updatedAt()
+        );
+        Bug saved = bugDao.update(updated)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+
+        recordChange(saved.id(), actor.id(), "assigneeId", existing.assigneeId(), saved.assigneeId());
+        return saved;
+    }
+
+    @Transactional
     public Bug archiveBug(Long id, long userId) {
         Bug existing = bugDao.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
