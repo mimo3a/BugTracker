@@ -775,10 +775,19 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
+### ✅ T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
 **Request:** `{ "assigneeId": 3 }` oder `{ "assigneeId": null }` (entfernt Bearbeiter)
 
 **Validierung:** User muss existieren (HTTP 404 sonst)
+
+**Status (13.05.2026, PR #23):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- Folgt sauber dem `updateStatus`-Muster: `requireEditable` (404/409), `requireActor` (401), `isPrivileged` (403)
+- DTO mit `Long` (boxed) — erlaubt `null` als legitime Eingabe (= Bearbeiter entfernen, statt 0 durch Jackson-Default)
+- Rolle: DEVELOPER + ADMIN dürfen Bearbeiter setzen, TESTER → 403
+- 404 wenn `assigneeId` auf nicht-existierenden User zeigt (Spec-konform)
+- Activity-Logging via existierender `recordChange`-Konvention (`field=assigneeId`, alte/neue ID als String)
+- **Adapt:** Branch zweigte von `fb0ebc8` ab — auf aktuellen `develop` rebased, 2 Konflikte in `BugController` + `BugService` manuell aufgelöst (T035 + T037 wollten beide direkt hinter `updateStatus` einfügen; Reihenfolge jetzt: `status → assignee → archive → restore`)
+- **Tests nachgeliefert:** `BugServiceAssigneeTest` mit 7 Mockito-Unit-Tests (TESTER→403, Happy-Path mit Activity, null=Unassign, User-not-found→404, archived→409, Bug-not-found→404, No-Op skip)
 
 ---
 
