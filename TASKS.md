@@ -693,8 +693,15 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
+### ✅ T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
 **Response:** Alle Bug-Felder + reporterName + assigneeName + tagName
+
+**Status (13.05.2026, PR #21):** Implementiert (Patrick) — Trivial-Endpoint (+11 LOC), kein Adapt nötig.
+- Auth-Pflicht greift via globaler `SecurityConfig.anyRequest().authenticated()` — kein expliziter `CurrentSession.require()` nötig
+- `BugDao.findById` enriched bereits Reporter/Assignee/Tags via JOIN
+- Archivierte Bugs lesbar (FA-03 ist Read-Only, konsistent mit T035-Semantik)
+- 404 mit `"Bug nicht gefunden"` — gleiche Fehlersprache wie T034
+- Unit-Tests folgen mit T065
 
 ---
 
@@ -713,11 +720,11 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T035 · Soft-Delete + Reaktivierung *(FA-05)*
+### ✅ T035 · Soft-Delete + Reaktivierung *(FA-05)*
 - `PATCH /api/bugs/{id}/archive`: setzt `archived = true` + `status = ARCHIVIERT`
 - `PATCH /api/bugs/{id}/restore`: setzt `archived = false` + `status = NEU` (Workflow-Reset, weil `ARCHIVIERT` terminal ist)
 
-**Status (13.05.2026, PR folgt):** Implementiert (Patrick) + Review-Adapt (Maksim).
+**Status (13.05.2026, PR #22):** Implementiert (Patrick) + Review-Adapt (Maksim).
 - HTTP-Method-Drift gegenüber alter Spec-Variante (`DELETE /api/bugs/{id}`): Symmetrische PATCH-Paar-Lösung gewählt (konsistent mit `/status`, `/priority`).
 - Restore-Status-Quirk gefixt: `BugDao.setArchived` setzt beim Restore jetzt `status = NEU` (vorher blieb `ARCHIVIERT`, was archived=false + status=ARCHIVIERT als inkonsistenten Zustand hinterließ).
 - Rolle: DEVELOPER + ADMIN → 403 für TESTER
