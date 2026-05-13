@@ -73,6 +73,12 @@ public class BugController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}")
+    public BugResponse getBugById(@PathVariable Long id) {
+        Bug bug = bugService.getBugById(id);
+        return toResponse(bug);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BugResponse createBug(@Valid @RequestBody CreateBugRequest request) {

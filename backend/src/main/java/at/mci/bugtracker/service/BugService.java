@@ -65,6 +65,11 @@ public class BugService {
         return saved;
     }
 
+    public Bug getBugById(Long id) {
+        return bugDao.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+    }
+
     public BugPage listBugs(BugFilter filter, int page) {
         BugFilter effectiveFilter = filter == null ? BugFilter.empty() : filter;
         int effectivePage = Math.max(page, 0);
