@@ -107,6 +107,20 @@ public class BugController {
         return toResponse(bug);
     }
 
+    @PatchMapping("/{id}/archive")
+    public BugResponse archiveBug(@PathVariable Long id) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.archiveBug(id, session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/restore")
+    public BugResponse restoreBug(@PathVariable Long id) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.restoreBug(id, session.userId());
+        return toResponse(bug);
+    }
+
     private BugResponse toResponse(Bug bug) {
         return new BugResponse(
                 bug.id(),

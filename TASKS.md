@@ -714,8 +714,17 @@ INSERT INTO tags (name, color) VALUES
 ---
 
 ### T035 · Soft-Delete + Reaktivierung *(FA-05)*
-- `DELETE /api/bugs/{id}`: setzt `archived = true`
-- `PATCH /api/bugs/{id}/restore`: setzt `archived = false`
+- `PATCH /api/bugs/{id}/archive`: setzt `archived = true` + `status = ARCHIVIERT`
+- `PATCH /api/bugs/{id}/restore`: setzt `archived = false` + `status = NEU` (Workflow-Reset, weil `ARCHIVIERT` terminal ist)
+
+**Status (13.05.2026, PR folgt):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- HTTP-Method-Drift gegenüber alter Spec-Variante (`DELETE /api/bugs/{id}`): Symmetrische PATCH-Paar-Lösung gewählt (konsistent mit `/status`, `/priority`).
+- Restore-Status-Quirk gefixt: `BugDao.setArchived` setzt beim Restore jetzt `status = NEU` (vorher blieb `ARCHIVIERT`, was archived=false + status=ARCHIVIERT als inkonsistenten Zustand hinterließ).
+- Rolle: DEVELOPER + ADMIN → 403 für TESTER
+- 409 wenn schon im Zielzustand (idempotente Fehlersemantik)
+- Activity-Logging via `field=archived` + alte/neue Werte (`recordChange`-Pattern)
+- OpenAPI auf PATCH /archive + /restore mit 409 synchronisiert
+- Unit-Tests folgen mit T065
 
 ---
 

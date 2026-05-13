@@ -341,24 +341,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-    delete:
+  /api/bugs/{id}/archive:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    patch:
       tags: [Bugs]
       summary: Bug archivieren — Soft-Delete (FA-05, T035)
       description: |
-        Setzt `archived = true`. Der Bug bleibt in der DB erhalten und kann
-        via PATCH /restore wieder reaktiviert werden.
+        Setzt `archived = true` und `status = ARCHIVIERT`. Der Bug bleibt in der DB
+        erhalten und kann via PATCH /restore wieder reaktiviert werden. Erzeugt
+        einen Activity-Eintrag (`field=archived`, `false`→`true`).
 
         **Rolle:** DEVELOPER, ADMIN
       operationId: archiveBug
       responses:
-        '204':
+        '200':
           description: Bug archiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Bug ist bereits archiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/bugs/{id}/restore:
     parameters:
@@ -366,7 +380,11 @@ paths:
     patch:
       tags: [Bugs]
       summary: Bug reaktivieren (FA-05, T035)
-      description: Setzt `archived = false`. **Rolle:** DEVELOPER, ADMIN
+      description: |
+        Setzt `archived = false` und `status = NEU` (Workflow-Reset, da `ARCHIVIERT`
+        terminal ist). Erzeugt einen Activity-Eintrag (`field=archived`, `true`→`false`).
+
+        **Rolle:** DEVELOPER, ADMIN
       operationId: restoreBug
       responses:
         '200':
@@ -381,6 +399,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Bug ist nicht archiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/bugs/{id}/status:
     parameters:

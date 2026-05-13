@@ -152,6 +152,40 @@ public class BugService {
         return saved;
     }
 
+    @Transactional
+    public Bug archiveBug(Long id, long userId) {
+        Bug existing = bugDao.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+        if (existing.archived()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bug ist bereits archiviert");
+        }
+        User actor = requireActor(userId);
+        if (!isPrivileged(actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, Bug zu archivieren");
+        }
+        bugDao.archive(id);
+        Bug saved = bugDao.findById(id).orElseThrow();
+        activityDao.insert(saved.id(), userId, ACTION_UPDATED, "archived", "false", "true");
+        return saved;
+    }
+
+    @Transactional
+    public Bug restoreBug(Long id, long userId) {
+        Bug existing = bugDao.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+        if (!existing.archived()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bug ist nicht archiviert");
+        }
+        User actor = requireActor(userId);
+        if (!isPrivileged(actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, Bug zu reaktivieren");
+        }
+        bugDao.restore(id);
+        Bug saved = bugDao.findById(id).orElseThrow();
+        activityDao.insert(saved.id(), userId, ACTION_UPDATED, "archived", "true", "false");
+        return saved;
+    }
+
     // --- Helper -----------------------------------------------------------
 
     private Bug requireEditable(Long id) {

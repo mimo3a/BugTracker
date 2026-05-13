@@ -215,10 +215,13 @@ class BugDaoTest {
         assertThat(archived.archived()).isTrue();
         assertThat(archived.status()).isEqualTo(BugStatus.ARCHIVIERT);
 
+        // Restore setzt status auf NEU zurück, weil ARCHIVIERT in der State-Machine
+        // terminal ist (kein Outgoing-Transition) — sonst bliebe archived=false +
+        // status=ARCHIVIERT als inkonsistenter Zustand zurück. Siehe T035-Review.
         assertThat(bugDao.restore(saved.id())).isTrue();
         Bug restored = bugDao.findById(saved.id()).orElseThrow();
         assertThat(restored.archived()).isFalse();
-        assertThat(restored.status()).isEqualTo(BugStatus.ARCHIVIERT);
+        assertThat(restored.status()).isEqualTo(BugStatus.NEU);
     }
 
     @Test

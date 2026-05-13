@@ -170,10 +170,15 @@ public class BugDao {
     }
 
     private boolean setArchived(Long id, boolean archived) {
+        // Status wird in beide Richtungen umgesetzt:
+        //   archive  → 'ARCHIVIERT' (terminal-Marker im Workflow)
+        //   restore  → 'NEU' (Workflow-Reset, weil ARCHIVIERT in der State-Machine
+        //                     keinen Outgoing-Transition hat — siehe T036).
+        // Ohne den Reset bliebe restore inkonsistent: archived=false aber status='ARCHIVIERT'.
         String sql = """
                 UPDATE bugs
                    SET archived = :archived,
-                       status = CASE WHEN :archived = TRUE THEN 'ARCHIVIERT' ELSE status END,
+                       status = CASE WHEN :archived = TRUE THEN 'ARCHIVIERT' ELSE 'NEU' END,
                        updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id
                 """;
