@@ -755,7 +755,7 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T036b · PATCH /api/bugs/{id}/priority Endpoint *(neu — FA-07)*
+### ✅ T036b · PATCH /api/bugs/{id}/priority Endpoint *(neu — FA-07)*
 **Was:** Eigener Endpoint für Prioritätsänderung (gemäß Pflichtenheft 5.7).
 
 **Request:** `{ "priority": "KRITISCH" }`
@@ -772,6 +772,17 @@ INSERT INTO tags (name, color) VALUES
 - Erfolg: HTTP 200
 - Ungültiger Wert: HTTP 400
 - Activity-Eintrag in DB
+
+**Status (15.05.2026, PR #26):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- Folgt exakt dem T037-Muster: `requireEditable` (404/409), `requireActor` (401), `isPrivileged` (403)
+- DTO `UpdatePriorityRequest` mit `@NotNull(message = "Priorität ist erforderlich") BugPriority priority` (Pflicht, anders als T037's nullable assigneeId)
+- Rolle: DEVELOPER + ADMIN dürfen, TESTER → 403 (FA-07)
+- Activity-Logging via `recordChange`-Konvention (`field=priority`, alte/neue Enum als String); kein Log bei identischem Wert
+- Controller-Reihenfolge nach Merge: `status → priority → assignee → archive → restore`
+- **Bonus**: `HttpMessageNotReadableException`-Handler in `GlobalExceptionHandler` — kaputtes JSON oder unbekannte Enum-Werte liefern jetzt 400 statt 500 (alle Endpoints profitieren)
+- **Adapt:** Branch zweigte von `c6e49aa` ab — auf aktuellen `develop` rebased, 3 Konflikte (BugController + GlobalExceptionHandler auto-merged, BugControllerTest manuell: alle 4 Tests behalten + Imports dedupliziert).
+- **Flaky-Test-Fix dabei:** `AuthControllerTest.registerReturnsFieldValidationMessages` hatte `password="short"` (verletzt `@Size` UND `@Pattern`); Hibernate Validator-Reihenfolge bei Multi-Constraint-Failures nicht-deterministisch → Test flaky seit T038-Merge. Payload auf `"1234567"` geändert (nur `@Size` feuert deterministisch).
+- **Tests:** 5 Service-Unit-Tests (`BugServicePriorityTest`) + 2 Controller-Tests; 68/68 Backend-Tests grün.
 
 ---
 
