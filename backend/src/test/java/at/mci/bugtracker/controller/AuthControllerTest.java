@@ -49,7 +49,7 @@ class AuthControllerTest {
                                 {
                                   "username": "ab",
                                   "email": "invalid",
-                                  "password": "short",
+                                  "password": "1234567",
                                   "passwordConfirm": ""
                                 }
                                 """))

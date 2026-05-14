@@ -4,16 +4,20 @@ import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
 import at.mci.bugtracker.model.BugStatus;
+import at.mci.bugtracker.model.UserRole;
 import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.service.BugPage;
 import at.mci.bugtracker.service.BugService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -25,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,6 +46,11 @@ class BugControllerTest {
 
     @MockBean
     private SessionStore sessionStore;
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void listBugsBuildsFilterFromQueryParamsAndReturnsPage() throws Exception {
@@ -140,5 +150,48 @@ class BugControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").exists())
                 .andExpect(jsonPath("$.description").exists());
+    }
+
+    @Test
+    void updatePriorityReturnsUpdatedBug() throws Exception {
+        SessionStore.Session session = new SessionStore.Session(10L, "dev", UserRole.DEVELOPER);
+        TestingAuthenticationToken authentication = new TestingAuthenticationToken(session, null);
+        authentication.setAuthenticated(true);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Bug bug = new Bug(
+                42L,
+                "Login fails",
+                "Steps",
+                BugStatus.NEU,
+                BugPriority.KRITISCH,
+                1L,
+                "tom",
+                null,
+                null,
+                List.of(),
+                List.of(),
+                false,
+                LocalDateTime.of(2026, 5, 10, 12, 0),
+                LocalDateTime.of(2026, 5, 10, 12, 5)
+        );
+        when(bugService.updatePriority(42L, BugPriority.KRITISCH, 10L)).thenReturn(bug);
+
+        mockMvc.perform(patch("/api/bugs/42/priority")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"priority\":\"KRITISCH\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(42))
+                .andExpect(jsonPath("$.priority").value("KRITISCH"));
+
+        verify(bugService).updatePriority(42L, BugPriority.KRITISCH, 10L);
+    }
+
+    @Test
+    void updatePriorityWithInvalidValueReturns400() throws Exception {
+        mockMvc.perform(patch("/api/bugs/42/priority")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"priority\":\"DRINGEND\"}"))
+                .andExpect(status().isBadRequest());
     }
 }
