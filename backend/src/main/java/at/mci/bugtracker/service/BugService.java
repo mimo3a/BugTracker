@@ -153,6 +153,38 @@ public class BugService {
     }
 
     @Transactional
+    public Bug updatePriority(Long id, BugPriority newPriority, long userId) {
+        Bug existing = requireEditable(id);
+        User actor = requireActor(userId);
+        // FA-07: Prioritätswechsel ist DEVELOPER+ADMIN-only. TESTER kann nicht.
+        if (!isPrivileged(actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, Priorität zu ändern");
+        }
+
+        Bug updated = new Bug(
+                existing.id(),
+                existing.title(),
+                existing.description(),
+                existing.status(),
+                newPriority,
+                existing.reporterId(),
+                existing.reporterName(),
+                existing.assigneeId(),
+                existing.assigneeName(),
+                existing.tagIds(),
+                existing.tagNames(),
+                existing.archived(),
+                existing.createdAt(),
+                existing.updatedAt()
+        );
+        Bug saved = bugDao.update(updated)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
+
+        recordChange(saved.id(), actor.id(), "priority", existing.priority(), saved.priority());
+        return saved;
+    }
+
+    @Transactional
     public Bug updateAssignee(Long id, Long newAssigneeId, long userId) {
         Bug existing = requireEditable(id);
         User actor = requireActor(userId);
