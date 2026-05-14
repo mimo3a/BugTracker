@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { api } from '../lib/api'
-import { EMPTY_FILTERS, type Bug } from '../types/bug'
+import { useCallback, useEffect, useState } from 'react'
+import { ApiError, api } from '../lib/api'
+import type { Bug } from '../types/bug'
 
 interface BugState {
   bug: Bug | null
@@ -9,20 +9,20 @@ interface BugState {
   error: string | null
 }
 
-/**
- * Lädt einen einzelnen Bug per ID.
- *
- * Workaround solange T033 (GET /api/bugs/{id}) noch nicht implementiert
- * ist: holt die Liste (auch archivierte) und sucht clientseitig. Wenn
- * T033 da ist, ersetzen durch `api.getBug(id)` — sonst alles wie es ist.
- */
-export function useBug(id: number | null): BugState {
+export function useBug(id: number | null) {
   const [state, setState] = useState<BugState>({
     bug: null,
     loading: id !== null,
     notFound: false,
     error: null,
   })
+  const [reloadToken, setReloadToken] = useState(0)
+
+  const refresh = useCallback(() => setReloadToken((n) => n + 1), [])
+  const setBug = useCallback(
+    (bug: Bug) => setState({ bug, loading: false, notFound: false, error: null }),
+    [],
+  )
 
   useEffect(() => {
     if (id === null) {
@@ -32,22 +32,18 @@ export function useBug(id: number | null): BugState {
     let cancelled = false
     setState((s) => ({ ...s, loading: true, error: null, notFound: false }))
 
-    // Auch archivierte holen — Edit-Page muss zumindest sagen können
-    // "ist archiviert" statt 404.
     api
-      .listBugs({ ...EMPTY_FILTERS, archived: true })
-      .then((res) => {
+      .getBug(id)
+      .then((bug) => {
         if (cancelled) return
-        const found = res.bugs.find((b) => b.id === id) ?? null
-        setState({
-          bug: found,
-          loading: false,
-          notFound: found === null,
-          error: null,
-        })
+        setState({ bug, loading: false, notFound: false, error: null })
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (cancelled) return
+        if (err instanceof ApiError && err.status === 404) {
+          setState({ bug: null, loading: false, notFound: true, error: null })
+          return
+        }
         setState({
           bug: null,
           loading: false,
@@ -59,7 +55,7 @@ export function useBug(id: number | null): BugState {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, reloadToken])
 
-  return state
+  return { ...state, refresh, setBug }
 }

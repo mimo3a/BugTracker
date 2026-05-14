@@ -99,6 +99,8 @@ nbbuild/
 nbdist/
 .nb-gradle/
 
+
+.screenshots/
 # ============================
 # AI-Assistenten
 # ============================

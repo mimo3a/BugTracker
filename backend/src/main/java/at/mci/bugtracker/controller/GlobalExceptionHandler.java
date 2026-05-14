@@ -3,20 +3,26 @@ package at.mci.bugtracker.controller;
 import at.mci.bugtracker.exception.EntityNotFoundException;
 import at.mci.bugtracker.exception.InvalidStatusTransitionException;
 import at.mci.bugtracker.util.HttpException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     record ErrorResponse(String error) {}
 
@@ -47,6 +53,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Not found"));
     }
 
+    // Unmapped routes (z. B. GET /api/tags solange T038a fehlt) sollen 404
+    // liefern, nicht 500. Spring's NoResourceFoundException greift sonst nicht,
+    // weil der generische Exception-Handler weiter unten alles abfängt.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Endpoint not found"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(new ErrorResponse("Method not allowed"));
+    }
+
     // ResponseStatusException explizit BEFORE der Exception-Catch-All — sonst
     // würde der generische Handler 4xx/5xx-Codes aus dem Service-Layer zu 500
     // überschreiben. Spring's eingebauter ResponseStatusExceptionResolver
@@ -62,6 +81,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        log.error("Unhandled exception reaching generic handler", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
     }
 }

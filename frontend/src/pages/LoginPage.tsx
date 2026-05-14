@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { ApiError } from '../lib/api'
 
@@ -21,6 +22,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(username, password)
+      toast.success('login erfolgreich')
       const redirectTo = (location.state as { from?: string } | null)?.from ?? '/bugs'
       navigate(redirectTo, { replace: true })
     } catch (err) {
@@ -38,7 +40,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-bg text-ink flex items-center justify-center px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm border border-border rounded p-6 bg-surface-1"
+        className="w-full max-w-sm border border-border rounded p-6 bg-surface"
       >
         <h1 className="font-mono text-2xl font-bold mb-1">login</h1>
         <p className="font-mono text-xs text-ink-soft mb-5">/api/auth/login</p>
@@ -79,6 +81,13 @@ export function LoginPage() {
         >
           {submitting ? '...' : 'login'}
         </button>
+
+        <p className="font-mono text-xs text-ink-soft mt-4 text-center">
+          noch kein account?{' '}
+          <Link to="/register" className="text-ink hover:underline underline-offset-2">
+            register
+          </Link>
+        </p>
       </form>
     </div>
   )

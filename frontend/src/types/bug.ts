@@ -50,6 +50,27 @@ export interface Tag {
   color?: string | null
 }
 
+export interface Activity {
+  id: number
+  bugId: number
+  userId: number
+  userName: string
+  action: string
+  field: string | null
+  oldValue: string | null
+  newValue: string | null
+  createdAt: string
+}
+
+export interface Comment {
+  id: number
+  bugId: number
+  userId: number
+  userName: string
+  content: string
+  createdAt: string
+}
+
 export interface BugFilters {
   status: BugStatus[]
   priority: BugPriority | ''

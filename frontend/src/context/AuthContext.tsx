@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
-import type { Me } from '../types/auth'
+import type { Me, RegisterInput } from '../types/auth'
 
 interface AuthContextValue {
   user: Me | null
   loading: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  register: (input: RegisterInput) => Promise<{ autoLoggedIn: boolean }>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -36,8 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function register(input: RegisterInput): Promise<{ autoLoggedIn: boolean }> {
+    const me = await api.auth.register(input)
+    setUser(me)
+    return { autoLoggedIn: true }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   )

@@ -3,33 +3,22 @@ package at.mci.bugtracker.service;
 import at.mci.bugtracker.model.BugStatus;
 import org.springframework.stereotype.Component;
 
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Set;
-
-// Definiert erlaubte Status-Wechsel laut FA-06. Rückwärts-Wechsel sind im MVP
-// nicht erlaubt (außer ARCHIVIERT → via T035 Restore zurück auf vorigen Status,
-// das läuft NICHT durch diese State-Machine, sondern direkt im Soft-Delete-Pfad).
-// Self-Transition (status == status) ist erlaubt — no-op, kein Fehler.
+// Regelt erlaubte Status-Wechsel (FA-06).
+//
+// Aktuelle Policy (gelockert nach Integration-Review 2026-05-14):
+//   • Zwischen allen aktiven Status (NEU, IN_BEARBEITUNG, IM_REVIEW, ERLEDIGT, ABGELEHNT)
+//     sind Wechsel in beide Richtungen frei. Begründung: Fehlklicks beim Inline-Edit
+//     müssen ohne Admin-Eingriff korrigierbar sein.
+//   • ARCHIVIERT ist über die State-Machine ein einseitiger Endzustand.
+//     Re-Aktivierung läuft NICHT hier durch, sondern über den dedizierten
+//     PATCH /api/bugs/{id}/restore-Endpoint (T035).
+//   • Self-Transition (status == status) ist als No-Op erlaubt.
 @Component
 public class BugStatusStateMachine {
 
-    private static final Map<BugStatus, Set<BugStatus>> TRANSITIONS;
-
-    static {
-        Map<BugStatus, Set<BugStatus>> t = new EnumMap<>(BugStatus.class);
-        t.put(BugStatus.NEU, EnumSet.of(BugStatus.IN_BEARBEITUNG, BugStatus.ARCHIVIERT));
-        t.put(BugStatus.IN_BEARBEITUNG, EnumSet.of(BugStatus.IM_REVIEW, BugStatus.ARCHIVIERT));
-        t.put(BugStatus.IM_REVIEW, EnumSet.of(BugStatus.ERLEDIGT, BugStatus.ABGELEHNT, BugStatus.ARCHIVIERT));
-        t.put(BugStatus.ERLEDIGT, EnumSet.of(BugStatus.ARCHIVIERT));
-        t.put(BugStatus.ABGELEHNT, EnumSet.of(BugStatus.ARCHIVIERT));
-        t.put(BugStatus.ARCHIVIERT, EnumSet.noneOf(BugStatus.class));
-        TRANSITIONS = Map.copyOf(t);
-    }
-
     public boolean canTransition(BugStatus from, BugStatus to) {
         if (from == to) return true;
-        return TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
+        if (from == BugStatus.ARCHIVIERT) return false;
+        return true;
     }
 }

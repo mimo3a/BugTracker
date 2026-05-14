@@ -4,10 +4,15 @@ type Theme = 'light' | 'dark'
 
 function readInitial(): Theme {
   try {
-    return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
+    const stored = localStorage.getItem('theme')
+    if (stored === 'dark' || stored === 'light') return stored
   } catch {
-    return 'light'
+    // localStorage blocked (private mode, etc.) → fall through to OS pref
   }
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+  return 'light'
 }
 
 export function ThemeToggle() {

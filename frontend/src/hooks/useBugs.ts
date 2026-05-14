@@ -2,20 +2,24 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { filterBugs } from '../lib/filterBugs'
 import { MOCK_BUGS, MOCK_TAGS } from '../lib/mockData'
-import { EMPTY_FILTERS, type Bug, type BugFilters, type Tag, type User } from '../types/bug'
+import { type Bug, type BugFilters, type Tag, type User } from '../types/bug'
 
 interface BugsState {
   bugs: Bug[]
   total: number
+  page: number
+  pageSize: number
   loading: boolean
   error: string | null
-  /** True when we fell back to mock data (backend unreachable). */
+  /** True wenn auf Mock-Daten zurückgefallen (Backend nicht erreichbar). */
   usingMock: boolean
 }
 
 const INITIAL: BugsState = {
   bugs: [],
   total: 0,
+  page: 1,
+  pageSize: 20,
   loading: true,
   error: null,
   usingMock: false,
@@ -24,28 +28,28 @@ const INITIAL: BugsState = {
 /**
  * Fetches bugs matching `filters` from the backend, falling back to mock
  * data so the filter UI is verifiable even without a running Spring app.
- *
- * Loading state is flipped via a render-phase compare-and-set against the
- * latest filter snapshot, avoiding `setState` inside the effect body.
  */
-export function useBugs(filters: BugFilters): BugsState {
+export function useBugs(filters: BugFilters, page = 1): BugsState {
   const [state, setState] = useState<BugsState>(INITIAL)
-  const [prevFilters, setPrevFilters] = useState<BugFilters | null>(null)
+  const [prevKey, setPrevKey] = useState<string | null>(null)
+  const key = JSON.stringify({ filters, page })
 
-  if (prevFilters !== filters) {
-    setPrevFilters(filters)
+  if (prevKey !== key) {
+    setPrevKey(key)
     if (!state.loading) setState((s) => ({ ...s, loading: true, error: null }))
   }
 
   useEffect(() => {
     let cancelled = false
     api
-      .listBugs(filters)
+      .listBugs(filters, page)
       .then((res) => {
         if (cancelled) return
         setState({
           bugs: res.bugs,
           total: res.total,
+          page: res.page,
+          pageSize: res.pageSize,
           loading: false,
           error: null,
           usingMock: false,
@@ -54,9 +58,14 @@ export function useBugs(filters: BugFilters): BugsState {
       .catch(() => {
         if (cancelled) return
         const filtered = filterBugs(MOCK_BUGS, filters)
+        const pageSize = 20
+        const start = (page - 1) * pageSize
+        const slice = filtered.slice(start, start + pageSize)
         setState({
-          bugs: filtered,
+          bugs: slice,
           total: filtered.length,
+          page,
+          pageSize,
           loading: false,
           error: null,
           usingMock: true,
@@ -66,7 +75,8 @@ export function useBugs(filters: BugFilters): BugsState {
     return () => {
       cancelled = true
     }
-  }, [filters])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
 
   return state
 }
@@ -74,35 +84,33 @@ export function useBugs(filters: BugFilters): BugsState {
 interface OptionsState {
   users: User[]
   tags: Tag[]
+  usingMockTags: boolean
 }
 
 /**
- * Builds the assignee + tag dropdowns for the filter bar.
- *
- * Why not `GET /api/users`? Per openapi.yaml that endpoint is ADMIN-only
- * (FA-15) and returns 403 for TESTER/DEVELOPER, so we cannot use it to
- * populate the assignee dropdown for ordinary users. Instead we derive the
- * assignee list from an unfiltered bug fetch on mount: every assignee that
- * has at least one open bug shows up.
- *
- * Caveat: a user who has never been assigned a bug is not selectable as a
- * filter target. Acceptable for the MVP filter UI; a dedicated lightweight
- * endpoint (e.g. /api/users/assignable, all roles) is the long-term fix.
+ * Builds the assignee + tag dropdowns. Users come from `/api/users`
+ * (jeder eingeloggte User, inkl. unzugewiesener Tester); tags from
+ * `/api/tags` mit Mock-Fallback wenn der Tag-Endpoint noch fehlt.
  */
 export function useFilterOptions(): OptionsState {
-  const [state, setState] = useState<OptionsState>({ users: [], tags: [] })
+  const [state, setState] = useState<OptionsState>({
+    users: [],
+    tags: [],
+    usingMockTags: false,
+  })
 
   useEffect(() => {
     let cancelled = false
     Promise.all([
+      api.listUsers().catch(() => [] as User[]),
       api
-        .listBugs(EMPTY_FILTERS)
-        .then((res) => res.bugs)
-        .catch(() => MOCK_BUGS),
-      api.listTags().catch(() => MOCK_TAGS),
-    ]).then(([bugs, tags]) => {
+        .listTags()
+        .then((tags) => ({ tags, usingMock: false }))
+        .catch(() => ({ tags: MOCK_TAGS, usingMock: true })),
+    ]).then(([users, tagResult]) => {
       if (cancelled) return
-      setState({ users: extractUsers(bugs), tags })
+      const sortedUsers = [...users].sort((a, b) => a.username.localeCompare(b.username))
+      setState({ users: sortedUsers, tags: tagResult.tags, usingMockTags: tagResult.usingMock })
     })
     return () => {
       cancelled = true
@@ -110,15 +118,4 @@ export function useFilterOptions(): OptionsState {
   }, [])
 
   return state
-}
-
-function extractUsers(bugs: Bug[]): User[] {
-  const seen = new Map<number, string>()
-  for (const b of bugs) {
-    if (b.assigneeId !== null && b.assigneeName !== null) seen.set(b.assigneeId, b.assigneeName)
-    if (!seen.has(b.reporterId)) seen.set(b.reporterId, b.reporterName)
-  }
-  return Array.from(seen.entries())
-    .map(([id, username]) => ({ id, username }))
-    .sort((a, b) => a.username.localeCompare(b.username))
 }

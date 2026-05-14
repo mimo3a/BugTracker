@@ -3,6 +3,7 @@ package at.mci.bugtracker.model;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
@@ -21,6 +22,7 @@ public final class Requests {
 
             @NotBlank(message = "Passwort darf nicht leer sein")
             @Size(min = 8, message = "Passwort muss mindestens 8 Zeichen lang sein")
+            @Pattern(regexp = ".*\\d.*", message = "Passwort muss mindestens eine Zahl enthalten")
             String password,
 
             @NotBlank(message = "Passwort-Bestätigung darf nicht leer sein")

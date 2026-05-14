@@ -1,62 +1,48 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import { AppLayout } from '../components/AppLayout'
+import { BugForm, type BugFormValues } from '../components/bugs/BugForm'
+import { Skeleton } from '../components/Skeleton'
 import { useBug } from '../hooks/useBug'
+import { useTags } from '../hooks/useTags'
 import { ApiError, api } from '../lib/api'
-import { SEED_TAGS } from '../lib/seedTags'
-
-const TITLE_MAX = 255
 
 export function BugEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const bugId = id && /^\d+$/.test(id) ? Number(id) : null
   const { bug, loading, notFound, error: loadError } = useBug(bugId)
+  const { tags, usingMock: tagsAreMock } = useTags()
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [tagIds, setTagIds] = useState<number[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Form mit Bug-Daten initialisieren, sobald geladen.
-  useEffect(() => {
-    if (bug) {
-      setTitle(bug.title)
-      setDescription(bug.description ?? '')
-      setTagIds(bug.tagIds)
-    }
-  }, [bug])
-
   if (bugId === null) return <Navigate to="/bugs" replace />
 
-  function toggleTag(tagId: number) {
-    setTagIds((prev) => (prev.includes(tagId) ? prev.filter((x) => x !== tagId) : [...prev, tagId]))
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function handleSubmit(values: BugFormValues) {
     if (bugId === null) return
     setError(null)
     setSubmitting(true)
     try {
-      await api.updateBug(bugId, {
-        title: title.trim(),
-        description: description.trim(),
-        tagIds,
-      })
-      navigate('/bugs', { replace: true })
+      await api.updateBug(bugId, values)
+      toast.success('bug gespeichert')
+      navigate(`/bugs/${bugId}`, { replace: true })
     } catch (err) {
+      let msg: string
       if (err instanceof ApiError && err.status === 409) {
-        setError(err.message || 'Bug ist archiviert oder Status-Konflikt')
+        msg = err.message || 'Bug ist archiviert oder Status-Konflikt'
       } else if (err instanceof ApiError && err.status === 403) {
-        setError('Keine Berechtigung diesen Bug zu bearbeiten')
+        msg = 'Keine Berechtigung diesen Bug zu bearbeiten'
       } else if (err instanceof ApiError && err.status === 400) {
-        setError(err.message || 'Eingaben unvollständig')
+        msg = err.message || 'Eingaben unvollständig'
       } else if (err instanceof ApiError && err.status === 401) {
-        setError('Session abgelaufen — bitte neu einloggen')
+        msg = 'Session abgelaufen — bitte neu einloggen'
       } else {
-        setError(err instanceof Error ? err.message : 'Bug konnte nicht gespeichert werden')
+        msg = err instanceof Error ? err.message : 'Bug konnte nicht gespeichert werden'
       }
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }
@@ -64,139 +50,80 @@ export function BugEditPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg text-ink flex items-center justify-center">
-        <span className="font-mono text-sm text-ink-soft">loading bug…</span>
-      </div>
+      <AppLayout width="2xl">
+        <div className="space-y-3" role="status" aria-label="bug wird geladen">
+          <Skeleton className="h-8 w-1/2" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </AppLayout>
     )
   }
 
   if (notFound || loadError) {
     return (
-      <div className="min-h-screen bg-bg text-ink flex items-center justify-center px-4">
-        <div className="font-mono text-sm text-center">
-          <p className="text-ink mb-2">{notFound ? 'Bug nicht gefunden' : 'Fehler beim Laden'}</p>
-          {loadError && <p className="text-red-fg text-xs mb-3">{loadError}</p>}
+      <AppLayout width="2xl">
+        <div className="text-center py-16">
+          <p className="font-mono text-sm text-ink mb-2">
+            {notFound ? 'Bug nicht gefunden' : 'Fehler beim Laden'}
+          </p>
+          {loadError && <p className="font-mono text-xs text-red-fg mb-3">{loadError}</p>}
           <button
             type="button"
             onClick={() => navigate('/bugs')}
-            className="text-ink-soft hover:text-ink border border-border rounded px-2 py-1"
+            className="font-mono text-xs text-ink-soft hover:text-ink border border-border rounded px-3 py-1.5"
           >
             zurück zur Liste
           </button>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   if (!bug) return null
 
-  const canSubmit = title.trim().length > 0 && description.trim().length > 0 && !submitting
-
   return (
-    <div className="min-h-screen bg-bg text-ink">
-      <main className="mx-auto max-w-2xl px-6 py-6">
-        <header className="flex items-center justify-between mb-5 pb-4 border-b border-border">
-          <div>
-            <h1 className="font-mono text-2xl font-bold text-ink">edit bug</h1>
-            <p className="font-mono text-xs text-ink-soft mt-1">
-              BUG-{bug.id} · PUT /api/bugs/{bug.id}
-              {bug.archived && <span className="ml-2 text-amber-fg">· archiviert</span>}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/bugs')}
-            className="font-mono text-xs text-ink-soft hover:text-ink border border-border rounded px-2 py-1"
-          >
-            cancel
-          </button>
-        </header>
-
-        {bug.archived && (
-          <p className="font-mono text-xs text-amber-fg mb-4">
-            Dieser Bug ist archiviert. Speichern wird mit 409 abgelehnt — erst reaktivieren.
+    <AppLayout width="2xl">
+      <header className="flex items-center justify-between mb-5 pb-4 border-b border-border">
+        <div>
+          <h1 className="font-mono text-2xl font-bold text-ink">edit bug</h1>
+          <p className="font-mono text-xs text-ink-soft mt-1">
+            BUG-{bug.id} · PUT /api/bugs/{bug.id}
+            {bug.archived && <span className="ml-2 text-amber-fg">· archiviert</span>}
           </p>
-        )}
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/bugs/${bug.id}`)}
+          className="font-mono text-xs text-ink-soft hover:text-ink border border-border rounded px-2 py-1"
+        >
+          cancel
+        </button>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="title" className="block font-mono text-xs text-ink-soft mb-1">
-              title <span className="text-red-fg">*</span>
-            </label>
-            <input
-              id="title"
-              type="text"
-              autoFocus
-              maxLength={TITLE_MAX}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-ink"
-              required
-            />
-            <p className="font-mono text-[10px] text-ink-soft mt-1">
-              {title.length} / {TITLE_MAX}
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block font-mono text-xs text-ink-soft mb-1">
-              description <span className="text-red-fg">*</span>
-            </label>
-            <textarea
-              id="description"
-              rows={6}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-ink resize-y"
-              required
-            />
-          </div>
-
-          <div>
-            <span className="block font-mono text-xs text-ink-soft mb-1">
-              tags · status/priority/assignee über PATCH-Endpoints (T050 Inline-Edit)
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {SEED_TAGS.map((tag) => {
-                const active = tagIds.includes(tag.id)
-                return (
-                  <button
-                    type="button"
-                    key={tag.id}
-                    onClick={() => toggleTag(tag.id)}
-                    className={`font-mono text-xs px-2 py-1 rounded border transition-colors ${
-                      active
-                        ? 'bg-ink text-bg border-ink'
-                        : 'bg-bg text-ink-soft border-border hover:text-ink'
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {error && <p className="font-mono text-xs text-red-fg">{error}</p>}
-
-          <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="px-4 py-2 bg-ink text-bg font-mono text-sm rounded hover:opacity-90 disabled:opacity-50"
-            >
-              {submitting ? '...' : 'save'}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/bugs')}
-              className="px-4 py-2 font-mono text-sm border border-border rounded text-ink-soft hover:text-ink"
-            >
-              cancel
-            </button>
-          </div>
-        </form>
-      </main>
-    </div>
+      <BugForm
+        tags={tagsAreMock ? [] : tags}
+        initial={{ title: bug.title, description: bug.description ?? '', tagIds: bug.tagIds }}
+        submitLabel="save"
+        submitting={submitting}
+        error={error}
+        onSubmit={handleSubmit}
+        onCancel={() => navigate(`/bugs/${bug.id}`)}
+        topAlert={
+          <>
+            {bug.archived && (
+              <p className="font-mono text-xs text-amber-fg" role="alert">
+                Dieser Bug ist archiviert. Speichern wird mit 409 abgelehnt — erst reaktivieren.
+              </p>
+            )}
+            {tagsAreMock && (
+              <p className="font-mono text-xs text-amber-fg" role="status">
+                tag-auswahl deaktiviert · /api/tags noch nicht implementiert (T038a)
+              </p>
+            )}
+          </>
+        }
+      />
+    </AppLayout>
   )
 }

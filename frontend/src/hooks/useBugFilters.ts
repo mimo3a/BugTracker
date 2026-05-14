@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import {
   BUG_PRIORITIES,
   BUG_STATUSES,
-  EMPTY_FILTERS,
   type BugFilters,
   type BugPriority,
   type BugStatus,
@@ -61,7 +60,13 @@ export function useBugFilters() {
   }, [setSearchParams])
 
   const isDirty = useMemo(
-    () => JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS),
+    () =>
+      filters.status.length > 0 ||
+      filters.priority !== '' ||
+      filters.tagId !== null ||
+      filters.assigneeId !== null ||
+      filters.search.trim().length > 0 ||
+      filters.archived,
     [filters],
   )
 
