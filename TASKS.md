@@ -1178,8 +1178,16 @@ Login mit gültigen/ungültigen Credentials · Registrierung · Doppelter-Userna
 
 ---
 
-### T065 · Unit-Tests für BugService *(US-01 bis US-08)*
+### ✅ T065 · Unit-Tests für BugService *(US-01 bis US-08)*
 Bug-CRUD · **Alle State-Machine-Übergänge (erlaubt + verboten)** · Soft-Delete + Reaktivierung · Bearbeiter-Zuweisung · **Prioritätsänderung** *(neu — FA-07)*
+
+**Status (15.05.2026, PR #27):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- 14 Mockito-Unit-Tests in neuer Klasse `BugServiceCrudStatusArchiveTest`: `createBug` (defaults Status/Priority), `updateBug` (Reporter + 403 fremder Tester + 409 archived), `updateStatus` (allowed/forbidden Transition via Mock + 403 Tester), `archiveBug` (Happy + 409 doppelt), `restoreBug` (Happy + 409 aktiv).
+- **Design**: `BugStatusStateMachine` wird gemockt (`@Mock`), nicht real verwendet — BugService-Tests sind dadurch immun gegen Policy-Änderungen der State-Machine. Bearbeiter-Zuweisung (T037) und Priority (T036b) haben bereits eigene Test-Klassen (`BugServiceAssigneeTest`, `BugServicePriorityTest`).
+- **Adapt:** Branch zweigte von `c6e49aa` ab. Git's 3-way-Merge mergte `BugStatusStateMachineTest` automatisch, **erkannte aber keinen semantischen Konflikt**: T065 ergänzte `allTransitionsMatchDocumentedPolicy` mit ALTER strikter Policy (NEU → IN_BEARBEITUNG/ARCHIVIERT only), develop hatte parallel im Sprint1-Merge die State-Machine gelockert. Beide Tests im selben File widersprachen sich (`NEU → IM_REVIEW`: T065 sagt `false`, develop sagt `true`). T065's veralteter Test + `allowedTargets`-Helper gedroppt, develop's neue Tests behalten. T065 reduziert sich netto auf die reine Hinzufügung von `BugServiceCrudStatusArchiveTest`.
+- **Tests:** 79/79 Backend-Tests grün (vorher 68, +11 netto).
+
+---
 
 ---
 
