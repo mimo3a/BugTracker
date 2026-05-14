@@ -861,14 +861,14 @@ public record CreateBugRequest(
 
 ---
 
-### T039 · React + Vite + TypeScript Projekt-Setup
+### ✅ T039 · React + Vite + TypeScript Projekt-Setup
 **Befehl:** `npm create vite@latest frontend -- --template react-ts`
 
 **Konfiguration:** `tsconfig.json` strict mode · Verzeichnisstruktur `src/{pages,components,hooks,context,lib}`
 
 ---
 
-### T040 · Tailwind CSS Setup
+### ✅ T040 · Tailwind CSS Setup
 ```bash
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
@@ -876,7 +876,7 @@ npx tailwindcss init -p
 
 ---
 
-### T041 · React Router Setup
+### ✅ T041 · React Router Setup
 **Routes:**
 ```
 /             → /bugs (wenn eingeloggt) sonst /login
@@ -895,7 +895,7 @@ npx tailwindcss init -p
 
 ---
 
-### T042 · API-Client mit fetch + Custom Hooks
+### ✅ T042 · API-Client mit fetch + Custom Hooks
 **Was:** Zentraler HTTP-Client + Hooks `useBugs`, `useBug(id)`, `useUsers`, `useTags`.
 
 **Wichtig:** `credentials: 'include'` auf allen Requests · CSRF-Token-Handling falls aktiviert (siehe T021)
@@ -929,7 +929,7 @@ npx tailwindcss init -p
 
 ---
 
-### T045 · Register-Seite *(US-13)*
+### ✅ T045 · Register-Seite *(US-13)*
 **Felder:** Username, E-Mail, Passwort, Passwort bestätigen · Validation mit `react-hook-form` + `zod`
 
 **API-Aufruf:** `POST /api/auth/register` mit Body `{ username, email, password, passwordConfirm }` — **alle vier Felder Pflicht**, sonst 400 vom Backend (siehe T025).
@@ -944,14 +944,14 @@ npx tailwindcss init -p
 
 ---
 
-### T046 · Bug-Liste-Seite (/bugs) *(US-02)*
+### ✅ T046 · Bug-Liste-Seite (/bugs) *(US-02)*
 **Spalten:** ID, Titel, Status (farbiges Badge), Priorität, Tag, Bearbeiter, Erstelldatum
 **Leerer Zustand:** Hinweis + Button „Neuer Bug"
 **Pagination:** 50 pro Seite
 
 ---
 
-### T047 · Bug-Detail-Seite (/bugs/:id) *(US-03)*
+### ✅ T047 · Bug-Detail-Seite (/bugs/:id) *(US-03)*
 **Enthält:**
 - Alle Bug-Felder
 - Edit-Button → öffnet Bearbeiten-Formular
@@ -976,12 +976,12 @@ npx tailwindcss init -p
 
 ---
 
-### T049 · Bug-Bearbeiten-Formular *(US-04)*
+### ✅ T049 · Bug-Bearbeiten-Formular *(US-04)*
 **Vorbefülltes Formular** · Submit `PUT /api/bugs/{id}` · Abbrechen verwirft Änderungen
 
 ---
 
-### T050 · Inline-Editing-Dropdowns *(US-06, US-07, US-08)*
+### ✅ T050 · Inline-Editing-Dropdowns *(US-06, US-07, US-08)*
 **Was:** Status, Priorität, Bearbeiter, Tag direkt in Detail-Seite ändern.
 
 **Ruft auf:**
@@ -992,23 +992,23 @@ npx tailwindcss init -p
 
 ---
 
-### T051 · Archivieren-Button + Reaktivieren *(US-05)*
+### ✅ T051 · Archivieren-Button + Reaktivieren *(US-05)*
 
 ---
 
-### T052 · Hauptlayout + Navigation
+### ✅ T052 · Hauptlayout + Navigation
 **Header:** Logo · Nav-Links (Bugs, Admin-Bereich für ADMIN) · Username · Logout-Button
 
 ---
 
-### T053 · Filter-UI in Bug-Liste *(US-09)*
+### ✅ T053 · Filter-UI in Bug-Liste *(US-09)*
 **Filter:** Status, Priorität, Tag, Bearbeiter
 **URL-Sync:** Filter als Query-Parameter → URL teilbar
 **Reset-Button** stellt Default-Liste wieder her
 
 ---
 
-### T053a · AdminTagsPage (Frontend) *(neu — FA-16)*
+### ✅ T053a · AdminTagsPage (Frontend) *(neu — FA-16)*
 **Was:** UI für Tag-Verwaltung, nur ADMIN sichtbar.
 
 **Features:**
@@ -1025,7 +1025,7 @@ npx tailwindcss init -p
 
 ---
 
-### T053b · AdminUsersPage (Frontend) *(neu — FA-15)*
+### ✅ T053b · AdminUsersPage (Frontend) *(neu — FA-15)*
 **Was:** UI für Benutzerverwaltung, nur ADMIN sichtbar.
 
 **Features:**
@@ -1040,7 +1040,7 @@ npx tailwindcss init -p
 
 ---
 
-### T054 · Toast-Notifications
+### ✅ T054 · Toast-Notifications
 
 | Aktion | Meldung | Dauer |
 |--------|---------|-------|
@@ -1053,7 +1053,7 @@ npx tailwindcss init -p
 
 ---
 
-### T055 · Loading-States + Error-Handling
+### ✅ T055 · Loading-States + Error-Handling
 **Skeleton-Loader oder Spinner** während API-Calls · Error-Boundary für unerwartete Fehler · Benutzerfreundliche Meldungen
 
 ---
@@ -1116,7 +1116,7 @@ CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 
 ---
 
-### T059 · Bug-Historie-Anzeige im Frontend *(US-14)*
+### ✅ T059 · Bug-Historie-Anzeige im Frontend *(US-14)*
 **Timeline-Komponente** in Bug-Detail-Seite.
 
 **Anzeige:** Zeitstempel · User · Aktion (z.B. „Status geändert: NEU → IN_BEARBEITUNG")
@@ -1124,7 +1124,7 @@ CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 
 ---
 
-### T060 · Suchfeld in Bug-Liste (Frontend + Backend) *(US-10)*
+### ✅ T060 · Suchfeld in Bug-Liste (Frontend + Backend) *(US-10)*
 **Frontend:** Suchfeld mit 300ms Debounce · Treffer-Hervorhebung
 **Backend:** `GET /api/bugs?search=login` — case-insensitive ILIKE
 **Kombinierbar** mit Status/Priority/Tag-Filter
@@ -1136,7 +1136,7 @@ CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 
 ---
 
-### T062 · (KANN) Kommentare-Frontend
+### ✅ T062 · (KANN) Kommentare-Frontend
 **Plain-Text** · Chronologische Sortierung (älteste oben) · Submit-Button deaktiviert wenn leer
 
 ---
@@ -1201,7 +1201,7 @@ End-to-End via MockMvc: Login → /me → Logout · HTTP-Status + Cookie-Handlin
 
 ---
 
-### T068 · Frontend Unit-Tests (Vitest + Testing Library)
+### ✅ T068 · Frontend Unit-Tests (Vitest + Testing Library)
 Mind. 5 Tests: Login-Formular, Bug-Erstellen-Formular, Auth-Context, ProtectedRoute, StatusDropdown.
 
 ---
