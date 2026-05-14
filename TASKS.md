@@ -1215,9 +1215,17 @@ End-to-End via MockMvc: Login → /me → Logout · HTTP-Status + Cookie-Handlin
 
 ---
 
-### T067 · Integration-Tests für Bug-Endpoints
+### ✅ T067 · Integration-Tests für Bug-Endpoints
 **Bug-Lifecycle:** Erstellen → Bearbeiten → Status ändern → Archivieren.
 **Deckt UC-01, UC-02, UC-03 ab.**
+
+**Status (15.05.2026, PR #28):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- `BugLifecycleIntegrationTest` mit einem End-to-End-`@Test` (`fullBugLifecycle_createEditChangeStatusAndArchive`): Login als DEVELOPER → POST `/api/bugs` (priority=HOCH, 2 Tags) → PUT `/api/bugs/{id}` (Titel+Beschreibung+neue Tags) → PATCH `/status` (NEU → IN_BEARBEITUNG) → PATCH `/archive` → Verifikation `archived` hidden by default + sichtbar mit `?archived=true`.
+- **Setup**: `@SpringBootTest` + H2 In-Memory (PostgreSQL-Mode), Flyway disabled, Schema via `@BeforeEach` mit raw `CREATE TABLE` (users, tags, bugs, bug_tags, activities); BCrypt-Hash für `admin123` passt zum V4-Seed.
+- **Echtes Auth-Flow** mit Cookie-Session, nicht gemockt. Prüft tagIds, reporterName, status-Transitionen, archived-Filter.
+- **Adapt:** Branch zweigte von `c6e49aa` ab — Rebase auf `develop` konfliktfrei (einzige neue Datei, keine Überschneidungen). Keine semantische Adaption nötig.
+- **Tests:** 80/80 Backend-Tests grün (vorher 79, +1 Lifecycle-Test).
+- **Follow-ups offen (außerhalb Scope):** (a) Activity-Log-Verifikation im E2E (`activities`-Tabelle wird angelegt, aber nicht in Assertions geprüft — Coverage liegt bei T065-Unit-Tests); (b) Schema-Drift-Risiko da Test-Schema manuell gepflegt statt via Flyway; (c) Fehlerpfade (403/409/404) sind in Unit-Tests abgedeckt, nicht im E2E.
 
 ---
 
