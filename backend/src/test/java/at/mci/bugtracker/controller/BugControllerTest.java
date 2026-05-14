@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -58,7 +61,7 @@ class BugControllerTest {
                 LocalDateTime.of(2026, 5, 10, 12, 5)
         );
         when(bugService.listBugs(any(BugFilter.class), eq(2)))
-                .thenReturn(new BugPage(List.of(bug), 73, 2, 50));
+                .thenReturn(new BugPage(List.of(bug), 73, 2, 20));
 
         mockMvc.perform(get("/api/bugs")
                         .param("status", "NEU")
@@ -72,7 +75,7 @@ class BugControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(73))
                 .andExpect(jsonPath("$.page").value(2))
-                .andExpect(jsonPath("$.pageSize").value(50))
+                .andExpect(jsonPath("$.pageSize").value(20))
                 .andExpect(jsonPath("$.bugs[0].id").value(42))
                 .andExpect(jsonPath("$.bugs[0].title").value("Login fails"))
                 .andExpect(jsonPath("$.bugs[0].tagIds[0]").value(1));
@@ -87,7 +90,7 @@ class BugControllerTest {
         assertThat(filter.tagIds()).containsExactly(1L, 3L);
         assertThat(filter.search()).isEqualTo("login");
         assertThat(filter.includeArchived()).isFalse();
-        assertThat(filter.pageSize()).isEqualTo(50);
+        assertThat(filter.pageSize()).isEqualTo(20);
     }
 
     @Test
@@ -107,5 +110,35 @@ class BugControllerTest {
         BugFilter filter = filterCaptor.getValue();
         assertThat(filter.assigneeId()).isEqualTo(3L);
         assertThat(filter.tagIds()).isEmpty();
+    }
+
+    @Test
+    void createBugReturnsFieldValidationMessages() throws Exception {
+        mockMvc.perform(post("/api/bugs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "",
+                                  "description": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Titel ist erforderlich"))
+                .andExpect(jsonPath("$.description").value("Beschreibung ist erforderlich"));
+    }
+
+    @Test
+    void updateBugReturnsSingleFieldMessageWhenMultipleConstraintsFail() throws Exception {
+        mockMvc.perform(put("/api/bugs/42")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "",
+                                  "description": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").exists())
+                .andExpect(jsonPath("$.description").exists());
     }
 }

@@ -111,7 +111,7 @@ public class BugController {
     @PatchMapping("/{id}/assignee")
     public BugResponse updateAssignee(
             @PathVariable Long id,
-            @RequestBody UpdateAssigneeRequest request
+            @Valid @RequestBody UpdateAssigneeRequest request
     ) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.updateAssignee(id, request.assigneeId(), session.userId());
