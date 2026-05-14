@@ -285,7 +285,7 @@ Diese Tabelle dient dem Nachweis, dass jede Pflichtenheft-Anforderung implementi
 - `postgresql` (JDBC-Treiber)
 - Test: `junit-jupiter`, `mockito-core`, `spring-boot-starter-test`
 
-> **Hinweis:** Bewusst KEINE `spring-session-jdbc`-Abhängigkeit — Sessions werden in-memory verwaltet (Standard von Spring Security). Kein eigener `spring_session`-Tabelle in der DB.
+> **Hinweis:** Bewusst KEINE `spring-session-jdbc`-Abhängigkeit. Sessions werden über eine eigene `SessionStore`-Komponente in-memory verwaltet (siehe T021). Keine `spring_session`-Tabelle in der DB.
 
 **Definition of Done:**
 - `mvn clean install` läuft fehlerfrei
@@ -316,8 +316,10 @@ services:
 
 ---
 
-### T012 · Dockerfile für Backend
+### ✅ T012 · Dockerfile für Backend
 **Was:** Multi-Stage Dockerfile.
+
+**Status (09.05.2026, PR #8):** Implementiert + gemerged.
 
 **Anforderungen:** Image-Größe < 300 MB
 
@@ -335,10 +337,25 @@ services:
 
 ---
 
-### T014 · GitHub Actions CI Pipeline (Frontend)
-**Datei:** `.github/workflows/ci-frontend.yml`
+### T014 · CI Pipeline (Frontend) + Hosting/Deploy
+**Status (15.05.2026):** Backend-CI existiert bereits in `.github/workflows/ci-backend.yml` (Java 21 + Postgres 16, läuft auf GitHub-Spiegelung). Frontend-CI fehlt komplett. Repo-Origin ist MCI-Gitea, GitHub ist Spiegel-Target.
 
-**Pipeline:** Checkout → Node 20 → `npm install` → `npm run lint` → `npm run typecheck` → `npm run build`
+**Datei:** `.github/workflows/ci-frontend.yml` (analog zum Backend-Pendant).
+
+**Pipeline (CI):** Checkout → Node 20 → `cd frontend && npm ci` → `npm run lint` (sofern vorhanden, sonst skip) → `npm run typecheck` (oder `tsc --noEmit`) → `npm run test:run` → `npm run build`. Trigger: push/PR auf `main`/`develop`, nur bei Änderungen in `frontend/**`.
+
+**Hosting/CD:**
+- **Frontend → Vercel** (Hobby, dauerhaft kostenlos). `frontend/vercel.json` ist bereits da, nur Project Import + Build Settings (Framework=Vite, Build Command=`npm run build`, Output Directory=`dist`, Root Directory=`frontend`) eintragen.
+- **Backend → Render** Web Service (free 750h/Monat, schläft nach 15min) oder **Fly.io** (3 Apps gratis, kein Sleep). Verwendet `backend/Dockerfile` + `application-prod.yml`.
+- **DB → Neon** Postgres (0.5 GB dauerhaft frei, kein Sleep, kein 90-Tage-Limit). Connection-String als Env-Var ins Backend.
+- **Gitea ↔ GitHub-Mirror** einrichten (Gitea Settings → Repo-Mirroring), damit Vercel/Render Push-getriggert deployen können.
+
+**Definition of Done:**
+- Frontend-CI läuft grün auf jeden PR (über Gitea→GitHub-Spiegelung).
+- Frontend ist unter einer öffentlichen Vercel-URL erreichbar (z.B. `bugtracker-se2.vercel.app`).
+- Backend ist unter Render/Fly.io-URL erreichbar (z.B. `bugtracker-api.onrender.com`).
+- Demo-Login mit `admin/admin123` funktioniert gegen die Produktion.
+- README.md verlinkt beide URLs.
 
 ---
 
@@ -367,7 +384,7 @@ services:
 
 ---
 
-### T018 · Spring Boot Projekt initialisieren
+### ✅ T018 · Spring Boot Projekt initialisieren
 **Package-Struktur:**
 ```
 at.mci.bugtracker/
@@ -384,7 +401,7 @@ at.mci.bugtracker/
 
 ---
 
-### T019 · Flyway Setup + V1-Migration (User)
+### ✅ T019 · Flyway Setup + V1-Migration (User)
 **Datei:** `src/main/resources/db/migration/V1__init.sql`
 
 ```sql
@@ -400,7 +417,7 @@ CREATE TABLE users (
 );
 ```
 
-> **Korrigiert gegenüber v1.0:** Keine `spring_session`-Tabelle. Sessions liegen in-memory (Standard Spring Security, vgl. T010-Hinweis).
+> **Korrigiert gegenüber v1.0:** Keine `spring_session`-Tabelle. Sessions werden über eine eigene `SessionStore`-Komponente in-memory verwaltet (siehe T021).
 
 **Definition of Done:**
 - Migration läuft beim Backend-Start
@@ -409,7 +426,7 @@ CREATE TABLE users (
 
 ---
 
-### T020 · User-Model + UserDao
+### ✅ T020 · User-Model + UserDao
 **Was:** Java Record `User` und DAO mit Methoden `findById`, `findByUsername`, `findByEmail`, `save`, `updateRole`, `findAll`.
 
 **Definition of Done:**
@@ -418,26 +435,47 @@ CREATE TABLE users (
 
 ---
 
-### T021 · Spring Security Konfiguration
-**Was:** `SecurityConfig.java` — Session-basierte Auth.
+### ✅ T021 · Spring Security Konfiguration
+**Was:** `SecurityConfig.java` — Cookie-basierte Auth mit dediziertem `SessionStore`.
 
 **Anforderungen:**
 - Public: `POST /api/auth/login`, `POST /api/auth/register`
 - Geschützt: alle anderen `/api/**`
-- Session-Management: `SessionCreationPolicy.IF_REQUIRED`
+- Session-Management: `SessionCreationPolicy.STATELESS` (kein Spring-`HttpSession`)
+- Sessions werden über eine dedizierte `SessionStore`-Komponente verwaltet (siehe unten)
 - Password-Encoder: `BCryptPasswordEncoder` (cost 10)
 
-> **CSRF-Hinweis (Diskrepanz zum Pflichtenheft NFA-07):**
-> Pflichtenheft NFA-07 nennt "CSRF-Schutz aktiv". Da wir aber Session-Cookies mit `SameSite=Lax` und einem dedizierten REST-API-Frontend nutzen, ist der klassische CSRF-Token-Mechanismus nicht zwingend notwendig — Spring empfiehlt CSRF-Schutz primär für formularbasierte HTML-Anwendungen.
+> **Architektur-Entscheidung (Abweichung von v1.0-Spec):**
+> Statt `SessionCreationPolicy.IF_REQUIRED` mit Spring's `HttpSession` setzen wir auf eine eigene `SessionStore`-Komponente:
+> - **`SessionStore`** (`@Component`, in-memory `ConcurrentHashMap`): erzeugt 32-Byte-Tokens via `SecureRandom`, mappt Token → `Session(userId, username, role)`.
+> - **`SessionAuthFilter`** (`OncePerRequestFilter`): liest `session`-Cookie, lädt aus `SessionStore`, setzt `UsernamePasswordAuthenticationToken` in den `SecurityContextHolder`.
+> - **`SessionCreationPolicy.STATELESS`** signalisiert Spring, keine eigene `HttpSession` anzulegen — die Session-Logik liegt komplett in unserer Komponente.
 >
-> **Entscheidung:** CSRF-Schutz wird für `/api/**`-Endpoints aktiviert (Standard-Spring-Verhalten via `CookieCsrfTokenRepository.withHttpOnlyFalse()`). Frontend muss das CSRF-Token aus dem Cookie lesen und im `X-XSRF-TOKEN`-Header mitsenden. Login- und Register-Endpoints werden vom CSRF-Schutz ausgenommen.
+> **Vorteile:** Kontrolle über Token-Format/Cookie-Flags, keine Abhängigkeit von Spring-Session, einfacher zu testen.
 >
-> Falls dieses Konzept zu komplex erscheint: Alternativ CSRF deaktivieren und im Pflichtenheft NFA-07 die Formulierung anpassen auf "Schutz vor CSRF durch SameSite-Cookies + CORS-Konfiguration".
+> **Bekannte Limitierungen** (im Projektbericht zu nennen):
+> - Sessions im Speicher → bei Backend-Restart sind alle User ausgeloggt
+> - Kein Multi-Instance-Support (nicht kritisch für unser Single-Instance-Deployment)
+> - Kein Session-Timeout/TTL implementiert (kann nachgerüstet werden, wenn nötig)
+
+> **CSRF-Entscheidung (Abweichung von Pflichtenheft NFA-07):**
+> Pflichtenheft NFA-07 nennt "CSRF-Schutz aktiv". Wir setzen stattdessen auf eine Token-/Cookie-Kombination, die für unser Setup (REST-API + SPA-Frontend) ausreichend ist:
+>
+> 1. **`HttpOnly`-Session-Cookie** — JavaScript kann den Session-Token nicht auslesen, also kann eine fremde Seite den Token nicht in einen Header schreiben.
+> 2. **`SameSite=Lax`** — Browser sendet das Cookie bei Cross-Site-`POST`/`PUT`/`DELETE`-Requests **nicht** mit. Das ist exakt der Angriffsvektor, den klassisches CSRF abdecken soll.
+> 3. **CORS mit `allowCredentials=true` + Whitelist** — nur `localhost:5173` (Dev) und ggf. konfigurierte Prod-Origin (siehe Issue 6) dürfen Credentials senden.
+>
+> Spring's CSRF-Schutz (`CookieCsrfTokenRepository`) ist primär für formularbasierte HTML-Anwendungen gedacht. Für eine REST-API mit Session-Cookies bringt er bei vorhandenem `SameSite=Lax` keinen zusätzlichen Schutz, würde aber Frontend-Komplexität (CSRF-Token-Header bei jedem Mutating-Request) erzeugen.
+>
+> **Im Pflichtenheft NFA-07 wird die Formulierung daher angepasst auf:** *„Schutz vor CSRF durch HttpOnly-Cookies + SameSite=Lax + CORS-Whitelist (kein Token-basierter CSRF-Schutz)"*.
+>
+> **Code:** `SecurityConfig.csrf(AbstractHttpConfigurer::disable)` mit Kommentar, der auf diese Entscheidung verweist.
 
 **Definition of Done:**
 - `GET /api/bugs` ohne Login → HTTP 401
 - `POST /api/auth/login` ohne Auth erreichbar
 - CSRF-Verhalten dokumentiert (entweder aktiv mit Frontend-Anpassung oder dokumentiert deaktiviert)
+- `SessionStore` + `SessionAuthFilter` als Komponenten implementiert
 
 ---
 
@@ -468,7 +506,7 @@ public ResponseEntity<Bug> updateBug(...) { ... }
 
 ---
 
-### T022 · CORS-Konfiguration für React-Frontend
+### ✅ T022 · CORS-Konfiguration für React-Frontend
 **Was:** `CorsConfig.java` — Cross-Origin-Requests vom Frontend erlauben.
 
 ```
@@ -481,7 +519,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T023 · POST /api/auth/login Endpoint
+### ✅ T023 · POST /api/auth/login Endpoint
 **Request:** `{ "username": "marie", "password": "secret123" }`
 **Response (Erfolg):** HTTP 200 + User-Daten + Session-Cookie
 **Response (Fehler):** HTTP 401 + `{ "error": "Login fehlgeschlagen" }` (kein Hinweis ob Username existiert)
@@ -490,30 +528,47 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T024 · POST /api/auth/logout Endpoint
+### ✅ T024 · POST /api/auth/logout Endpoint
 **Was:** Invalidiert Session, löscht Cookie. **Implementiert:** US-12 AC3.
 
 ---
 
-### T025 · POST /api/auth/register Endpoint
-**Validierungen:**
-- Username: eindeutig, 3–50 Zeichen
-- Email: valides Format, eindeutig
-- Passwort: mind. 8 Zeichen
-- `passwordConfirm` muss übereinstimmen
+### ✅ T025 · POST /api/auth/register Endpoint
+**Request-Payload (alle vier Felder Pflicht):**
+```json
+{
+  "username": "marie",
+  "email": "marie@example.com",
+  "password": "secret123",
+  "passwordConfirm": "secret123"
+}
+```
+
+**Validierungen (via `jakarta.validation`):**
+- Username: `@NotBlank @Size(min=3, max=50)` + Eindeutigkeitsprüfung in DAO
+- Email: `@NotBlank @Email` + Eindeutigkeitsprüfung in DAO
+- Passwort: `@NotBlank @Size(min=8)`
+- `passwordConfirm`: `@NotBlank` + Inline-Match-Check gegen `password`
+
+**Fehler-Responses:**
+- 400 mit Feld-zu-Fehler-Map bei Annotation-Verletzung (über `MethodArgumentNotValidException` → `GlobalExceptionHandler`)
+- 400 `{"error": "Passwörter stimmen nicht überein"}` bei `passwordConfirm`-Mismatch
+- 409 `{"error": "Username or email already taken"}` bei Konflikt
 
 **Default-Rolle:** TESTER · **Implementiert:** US-13 (alle 5 AC)
 
+> **Frontend-Hinweis (T045):** Die Register-Form muss alle vier Felder senden — `passwordConfirm` ist Pflicht und wird sowohl auf NotBlank als auch auf Gleichheit mit `password` geprüft. Ohne dieses Feld wird die Antwort 400 sein.
+
 ---
 
-### T026 · GET /api/auth/me Endpoint
+### ✅ T026 · GET /api/auth/me Endpoint
 **Was:** Gibt eingeloggten User zurück, im Frontend bei App-Start für Session-Persistenz aufgerufen.
 
 **Implementiert:** US-12 AC4 + AC5
 
 ---
 
-### T027 · Password-Hashing mit BCrypt
+### ✅ T027 · Password-Hashing mit BCrypt
 **Was:** Helper `PasswordHasher` mit `hash()` und `verify()`.
 
 **Anforderungen:** Cost factor ≥ 10 · Niemals Klartext speichern oder loggen
@@ -524,7 +579,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T028 · GlobalExceptionHandler
+### ✅ T028 · GlobalExceptionHandler
 **Was:** `@ControllerAdvice` für einheitliche Fehlerantworten.
 
 | Exception | HTTP | Response |
@@ -546,7 +601,7 @@ exposedHeaders: ["X-XSRF-TOKEN"]
 
 ---
 
-### T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle
+### ✅ T029 · V2-Migration: Bug-Tabelle + Tags-Tabelle + Junction
 **Datei:** `V2__bugs.sql`
 
 ```sql
@@ -554,7 +609,7 @@ CREATE TABLE tags (
     id         BIGSERIAL PRIMARY KEY,
     name       VARCHAR(50) UNIQUE NOT NULL,
     color      VARCHAR(7),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE bugs (
@@ -567,10 +622,17 @@ CREATE TABLE bugs (
                 CHECK (priority IN ('NIEDRIG','MITTEL','HOCH','KRITISCH')),
     reporter_id BIGINT NOT NULL REFERENCES users(id),
     assignee_id BIGINT REFERENCES users(id),
-    tag_id      BIGINT REFERENCES tags(id),
     archived    BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Many-to-Many: ein Bug kann beliebig viele Tags haben, ein Tag kann an
+-- beliebig vielen Bugs hängen.
+CREATE TABLE bug_tags (
+    bug_id BIGINT NOT NULL REFERENCES bugs(id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE RESTRICT,
+    PRIMARY KEY (bug_id, tag_id)
 );
 
 -- Standard-Tags für Demo
@@ -581,14 +643,21 @@ INSERT INTO tags (name, color) VALUES
     ('Feature', '#8B5CF6');
 ```
 
+> **Schema-Entscheidungen:**
+> - **Many-to-Many statt Single-Tag:** Pflichtenheft FA-16 verlangt „Tags verwalten" — wir interpretieren das als „mehrere Tags pro Bug möglich". Die Junction-Table `bug_tags` mit Composite-PK `(bug_id, tag_id)` verhindert duplikate.
+> - **`bug_id ON DELETE CASCADE`:** Bei Hard-Delete eines Bugs (passiert über `archived` normalerweise nicht) verschwinden die Junction-Einträge mit. Sicherheitsnetz.
+> - **`tag_id ON DELETE RESTRICT`:** Admin kann einen Tag nicht löschen, solange er noch zugewiesen ist. Verhindert versehentlichen Datenverlust.
+> - **`TIMESTAMP WITH TIME ZONE` + `CURRENT_TIMESTAMP`:** konsistent mit V1 (Auth-System). Standardwahl für mehrsprachige/multi-region Apps.
+
 **Definition of Done:**
 - Migration läuft fehlerfrei
 - Enum-Constraints aktiv
 - Standard-Tags vorhanden
+- `bug_tags`-Junction-Table mit Composite-PK + FKs angelegt
 
 ---
 
-### T030 · Bug-Model + BugDao
+### ✅ T030 · Bug-Model + BugDao
 **Was:** Java Record `Bug` + DAO.
 
 **BugDao-Methoden:**
@@ -603,7 +672,7 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T031 · POST /api/bugs Endpoint *(FA-01)*
+### ✅ T031 · POST /api/bugs Endpoint *(FA-01)*
 **Request:**
 ```json
 {
@@ -620,50 +689,88 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
-**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagId`, `search`, `page`, `archived`
+### ✅ T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
+**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagIds` (multi, OR-Semantik), `search`, `page`, `archived`
 
 **Response:**
 ```json
 { "bugs": [...], "total": 73, "page": 0, "pageSize": 50 }
 ```
 
+**Status (12.05.2026, PR #15):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- Sortierung `created_at DESC, id DESC` als Default
+- `pageSize` fest bei 50 (nicht client-konfigurierbar — MVP-Entscheidung)
+- snake_case-Alias `assignee_id` entfernt — durchgängig camelCase
+- `tagId` (single) → `tagIds` (List<Long>) mit OR-Semantik für Multi-Tag-Filter
+- `BugPage` als eigene Datei `service/BugPage.java` (statt nested Record)
+- Alle authentifizierten User dürfen lesen — Rollen-Restriktion nur beim Editieren (T034)
+- 40/40 Tests grün (BugControllerTest + erweiterter BugDaoTest mit Multi-Tag-OR-Test)
+
 ---
 
-### T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
+### ✅ T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
 **Response:** Alle Bug-Felder + reporterName + assigneeName + tagName
 
+**Status (13.05.2026, PR #21):** Implementiert (Patrick) — Trivial-Endpoint (+11 LOC), kein Adapt nötig.
+- Auth-Pflicht greift via globaler `SecurityConfig.anyRequest().authenticated()` — kein expliziter `CurrentSession.require()` nötig
+- `BugDao.findById` enriched bereits Reporter/Assignee/Tags via JOIN
+- Archivierte Bugs lesbar (FA-03 ist Read-Only, konsistent mit T035-Semantik)
+- 404 mit `"Bug nicht gefunden"` — gleiche Fehlersprache wie T034
+- Unit-Tests folgen mit T065
+
 ---
 
-### T034 · PUT /api/bugs/{id} Endpoint *(FA-04)*
+### ✅ T034 · PUT /api/bugs/{id} Endpoint *(FA-04)*
 **Was:** Bug bearbeiten (Titel, Beschreibung — Priorität via separatem PATCH, siehe T036b).
 
 **Verhalten:** Erzeugt Activity-Einträge für jedes geänderte Feld.
 
+**Status (10.05.2026, PR #13):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- Authorization: DEVELOPER + ADMIN für jeden Bug, TESTER nur eigenen als Reporter → 403 sonst
+- 409 CONFLICT bei archivierten Bugs (Soft-Delete-Konsistenz mit T035)
+- `priority` aus UpdateBugRequest entfernt — läuft über T036b PATCH /priority
+- OpenAPI auf M:N-Tag-Modell synchronisiert (`tagIds: array`)
+- Activity-Logging folgt mit T057 (blockierte vorher durch T056)
+- Unit-Tests folgen mit T065
+
 ---
 
-### T035 · Soft-Delete + Reaktivierung *(FA-05)*
-- `DELETE /api/bugs/{id}`: setzt `archived = true`
-- `PATCH /api/bugs/{id}/restore`: setzt `archived = false`
+### ✅ T035 · Soft-Delete + Reaktivierung *(FA-05)*
+- `PATCH /api/bugs/{id}/archive`: setzt `archived = true` + `status = ARCHIVIERT`
+- `PATCH /api/bugs/{id}/restore`: setzt `archived = false` + `status = NEU` (Workflow-Reset, weil `ARCHIVIERT` terminal ist)
+
+**Status (13.05.2026, PR #22):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- HTTP-Method-Drift gegenüber alter Spec-Variante (`DELETE /api/bugs/{id}`): Symmetrische PATCH-Paar-Lösung gewählt (konsistent mit `/status`, `/priority`).
+- Restore-Status-Quirk gefixt: `BugDao.setArchived` setzt beim Restore jetzt `status = NEU` (vorher blieb `ARCHIVIERT`, was archived=false + status=ARCHIVIERT als inkonsistenten Zustand hinterließ).
+- Rolle: DEVELOPER + ADMIN → 403 für TESTER
+- 409 wenn schon im Zielzustand (idempotente Fehlersemantik)
+- Activity-Logging via `field=archived` + alte/neue Werte (`recordChange`-Pattern)
+- OpenAPI auf PATCH /archive + /restore mit 409 synchronisiert
+- Unit-Tests folgen mit T065
 
 ---
 
-### T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
+### ✅ T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
 **State-Machine (erlaubte Übergänge):**
-- `NEU → IN_BEARBEITUNG, ABGELEHNT`
-- `IN_BEARBEITUNG → IM_REVIEW, ABGELEHNT`
-- `IM_REVIEW → ERLEDIGT, IN_BEARBEITUNG, ABGELEHNT`
+- `NEU → IN_BEARBEITUNG, ARCHIVIERT`
+- `IN_BEARBEITUNG → IM_REVIEW, ARCHIVIERT`
+- `IM_REVIEW → ERLEDIGT, ABGELEHNT, ARCHIVIERT`
 - `ERLEDIGT → ARCHIVIERT`
 - `ABGELEHNT → ARCHIVIERT`
-- Alle Status `→ ARCHIVIERT`
+- `ARCHIVIERT → (terminal, Restore via T035)`
 
-**Verbotener Übergang:** HTTP 400 + `{ "error": "Ungültiger Statuswechsel von ERLEDIGT zu NEU" }`
+**Verbotener Übergang:** HTTP 409 (Conflict) + `{ "error": "Status-Wechsel nicht erlaubt: ERLEDIGT → NEU" }`
 
-**Implementation:** Eigene Service-Klasse `StatusTransitionValidator` (siehe T065 Unit-Test).
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `service/BugStatusStateMachine.java` als @Component
+- DEVELOPER + ADMIN dürfen, TESTER → 403
+- Activity-Tracking automatisch (T057)
+- 6 BugStatusStateMachineTest + Live-Test gegen Postgres
+- Status-Code-Änderung vs. Spec: 409 statt 400 (semantisch korrekter — Request war wohlgeformt, Server-State erlaubt's nicht)
 
 ---
 
-### T036b · PATCH /api/bugs/{id}/priority Endpoint *(neu — FA-07)*
+### ✅ T036b · PATCH /api/bugs/{id}/priority Endpoint *(neu — FA-07)*
 **Was:** Eigener Endpoint für Prioritätsänderung (gemäß Pflichtenheft 5.7).
 
 **Request:** `{ "priority": "KRITISCH" }`
@@ -681,16 +788,36 @@ INSERT INTO tags (name, color) VALUES
 - Ungültiger Wert: HTTP 400
 - Activity-Eintrag in DB
 
+**Status (15.05.2026, PR #26):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- Folgt exakt dem T037-Muster: `requireEditable` (404/409), `requireActor` (401), `isPrivileged` (403)
+- DTO `UpdatePriorityRequest` mit `@NotNull(message = "Priorität ist erforderlich") BugPriority priority` (Pflicht, anders als T037's nullable assigneeId)
+- Rolle: DEVELOPER + ADMIN dürfen, TESTER → 403 (FA-07)
+- Activity-Logging via `recordChange`-Konvention (`field=priority`, alte/neue Enum als String); kein Log bei identischem Wert
+- Controller-Reihenfolge nach Merge: `status → priority → assignee → archive → restore`
+- **Bonus**: `HttpMessageNotReadableException`-Handler in `GlobalExceptionHandler` — kaputtes JSON oder unbekannte Enum-Werte liefern jetzt 400 statt 500 (alle Endpoints profitieren)
+- **Adapt:** Branch zweigte von `c6e49aa` ab — auf aktuellen `develop` rebased, 3 Konflikte (BugController + GlobalExceptionHandler auto-merged, BugControllerTest manuell: alle 4 Tests behalten + Imports dedupliziert).
+- **Flaky-Test-Fix dabei:** `AuthControllerTest.registerReturnsFieldValidationMessages` hatte `password="short"` (verletzt `@Size` UND `@Pattern`); Hibernate Validator-Reihenfolge bei Multi-Constraint-Failures nicht-deterministisch → Test flaky seit T038-Merge. Payload auf `"1234567"` geändert (nur `@Size` feuert deterministisch).
+- **Tests:** 5 Service-Unit-Tests (`BugServicePriorityTest`) + 2 Controller-Tests; 68/68 Backend-Tests grün.
+
 ---
 
-### T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
+### ✅ T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
 **Request:** `{ "assigneeId": 3 }` oder `{ "assigneeId": null }` (entfernt Bearbeiter)
 
 **Validierung:** User muss existieren (HTTP 404 sonst)
 
+**Status (13.05.2026, PR #23):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- Folgt sauber dem `updateStatus`-Muster: `requireEditable` (404/409), `requireActor` (401), `isPrivileged` (403)
+- DTO mit `Long` (boxed) — erlaubt `null` als legitime Eingabe (= Bearbeiter entfernen, statt 0 durch Jackson-Default)
+- Rolle: DEVELOPER + ADMIN dürfen Bearbeiter setzen, TESTER → 403
+- 404 wenn `assigneeId` auf nicht-existierenden User zeigt (Spec-konform)
+- Activity-Logging via existierender `recordChange`-Konvention (`field=assigneeId`, alte/neue ID als String)
+- **Adapt:** Branch zweigte von `fb0ebc8` ab — auf aktuellen `develop` rebased, 2 Konflikte in `BugController` + `BugService` manuell aufgelöst (T035 + T037 wollten beide direkt hinter `updateStatus` einfügen; Reihenfolge jetzt: `status → assignee → archive → restore`)
+- **Tests nachgeliefert:** `BugServiceAssigneeTest` mit 7 Mockito-Unit-Tests (TESTER→403, Happy-Path mit Activity, null=Unassign, User-not-found→404, archived→409, Bug-not-found→404, No-Op skip)
+
 ---
 
-### T038 · Bean-Validation für alle Request-Bodies
+### ✅ T038 · Bean-Validation für alle Request-Bodies
 **Beispiel:**
 ```java
 public record CreateBugRequest(
@@ -700,6 +827,15 @@ public record CreateBugRequest(
     Long tagId
 ) {}
 ```
+
+**Status (14.05.2026, PR #25):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- `@Valid` + Constraints auf Auth-DTOs in `Requests.java` (Register/Login/ChangePassword): `@NotBlank`, `@Size`, `@Email`; Passwort behält zusätzlich `@Pattern(.*\d.*)` aus develop (Sicherheits-Regel — Zahl im Passwort Pflicht).
+- `AuthController`: manuelle `isBlank`-Checks entfernt → ersetzt durch `@Valid`.
+- `BugController.updateAssignee` (T037): `@Valid` ergänzt (DTO selbst noch ohne Constraints — `null = unassign` bleibt zulässig).
+- `GlobalExceptionHandler.handleValidation`: `LinkedHashMap` für deterministische Feld-Reihenfolge, null-safe Default-Message, Merge-Function bei doppelten Constraints (behält erste).
+- **Adapt:** Müll-Commit `e1db824` (fremde Dev-Setup-Reste: AGENTS.md, leere `package-lock.json` im Repo-Root, `skills/spring-security/SKILL.md`) per Rebase entfernt; Konflikt in `Requests.java` als Union beider Seiten gelöst (develop's `@Pattern` + T038's `@Size(min=8, max=255)`); zerstörte Umlaute restauriert ("Ungueltiges" → "Ungültiges", "Passwort-Bestaetigung" → "Passwort-Bestätigung"); `BugControllerTest.pageSize`-Assertion auf `DEFAULT_PAGE_SIZE=20` korrigiert.
+- **Tests nachgeliefert:** `AuthControllerTest` (3 Tests: Login/Register/ChangePassword mit deutschen Field-Messages), `BugControllerTest` (Validation für POST/PUT `/api/bugs` + Filter/Pagination-Coverage). 61/61 Backend-Tests grün.
+- **Follow-up offen (außerhalb Scope):** Tote Records in `Requests.java` (`CreateBug`, `UpdateBug`, `BulkUpdateBugs`, `CreateProject`, …) werden von keinem Controller mehr genutzt — echte Bug-DTOs leben in `controller/dto/`. Cleanup-Ticket wert.
 
 ---
 
@@ -729,14 +865,21 @@ public record CreateBugRequest(
 
 ---
 
-### T038b · Admin-User-Management Backend *(neu — FA-15 AC1+AC2)*
+### ✅ T038b · Admin-User-Management Backend *(neu — FA-15 AC1+AC2)*
 **Was:** Endpoints für Admin-Übersicht aller User und Rollen-Änderung.
 
-**Endpoints:**
+**Endpoints (final, an Frontend-Contract angepasst):**
 | Methode | URL | Beschreibung | Rolle |
 |---------|-----|--------------|-------|
-| `GET`   | `/api/users`            | Alle User mit Rolle | ADMIN |
-| `PATCH` | `/api/users/{id}/role`  | Rolle ändern: `{ "role": "DEVELOPER" }` | ADMIN |
+| `GET`   | `/api/users`     | Alle User (UserWithoutHash); aus AuthController nach `UserController` refactored | eingeloggt (alle) |
+| `PATCH` | `/api/users/{id}` | Body `{ role?: UserRole, active?: boolean }` — beide optional, mind. eines gesetzt | ADMIN |
+
+**Status (15.05.2026, PR #29):** Implementiert (Maksim) — Solo-Build nach Sprint1-Backend-Review-Cluster.
+- Neue Klasse `UserController` + `UserService` + DTO `UpdateUserRequest` (in `controller/dto/`); `UserDao.updateActive(id, active)` ergänzt; `listUsers` aus `AuthController` rausgezogen.
+- **Lock-out-Schutz (FA-15)**: ADMIN darf weder eigene Rolle ändern noch sich selbst deaktivieren → 400 mit deutscher Fehlermeldung. ADMIN darf eigene Rolle auf "ADMIN" setzen (no-op, kein Lock-out-Risiko).
+- **403** für nicht-ADMIN auf PATCH; **404** bei unbekanntem Target.
+- **Tests**: 10 `UserServiceTest` (Mockito) + 6 `UserControllerTest` (WebMvcTest), 96/96 Backend-Tests grün (+16 netto).
+- **GET `/api/users`-Semantik**: bleibt für alle eingeloggten User (Frontend ruft das im BugForm für Assignee-Dropdown auf — wäre sonst Breaking-Change). PasswordHash war sowieso nie im Response.
 
 **Validierung:**
 - Rolle muss in `{ TESTER, DEVELOPER, ADMIN }` sein
@@ -760,14 +903,14 @@ public record CreateBugRequest(
 
 ---
 
-### T039 · React + Vite + TypeScript Projekt-Setup
+### ✅ T039 · React + Vite + TypeScript Projekt-Setup
 **Befehl:** `npm create vite@latest frontend -- --template react-ts`
 
 **Konfiguration:** `tsconfig.json` strict mode · Verzeichnisstruktur `src/{pages,components,hooks,context,lib}`
 
 ---
 
-### T040 · Tailwind CSS Setup
+### ✅ T040 · Tailwind CSS Setup
 ```bash
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
@@ -775,7 +918,7 @@ npx tailwindcss init -p
 
 ---
 
-### T041 · React Router Setup
+### ✅ T041 · React Router Setup
 **Routes:**
 ```
 /             → /bugs (wenn eingeloggt) sonst /login
@@ -794,40 +937,63 @@ npx tailwindcss init -p
 
 ---
 
-### T042 · API-Client mit fetch + Custom Hooks
+### ✅ T042 · API-Client mit fetch + Custom Hooks
 **Was:** Zentraler HTTP-Client + Hooks `useBugs`, `useBug(id)`, `useUsers`, `useTags`.
 
 **Wichtig:** `credentials: 'include'` auf allen Requests · CSRF-Token-Handling falls aktiviert (siehe T021)
 
 ---
 
-### T043 · Auth-Context + AuthProvider
+### ✅ T043 · Auth-Context + AuthProvider
 **Was:** React Context mit `user`, `loading`, `login()`, `logout()`.
 
 **Verhalten:** Beim App-Start `GET /api/auth/me` → User bleibt nach Page-Reload eingeloggt.
 
 **Implementiert:** US-12 AC5
 
+**Status (12.05.2026, PR #16):** Implementiert (Maksim).
+- `context/AuthContext.tsx` mit `AuthProvider` + `useAuth`-Hook
+- Auto-Restore via `GET /api/auth/me` beim App-Mount
+- `components/ProtectedRoute.tsx` als Route-Guard (redirect → /login wenn unauth)
+
 ---
 
-### T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
+### ✅ T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
 **Felder:** Username, Passwort · Bei Erfolg Redirect zu `/bugs` · Bei Fehler Meldung + Passwort-Feld leeren
 
+**Status (12.05.2026, PR #16):** Implementiert (Maksim).
+- `pages/LoginPage.tsx` mit username/password Form
+- 401 → "Falscher Benutzername oder Passwort" (deutsch)
+- BugListPage-Header: User-Anzeige (`username · role`) + Logout-Button
+- `ApiError`-Klasse für status-spezifische Fehler-Behandlung im UI
+- Mit-gefixt: UserDao-Bug in `findByUsername`/`findById`/`findByEmail`/`findAll` (SELECT-Spalten passten nicht zum ResultSet-Mapping, Login warf 500)
+- Mit-gefixt: Frontend-Bug-Type auf M:N-Tags (`tagIds`/`tagNames` Arrays) aligned mit Backend nach T029
+
 ---
 
-### T045 · Register-Seite *(US-13)*
+### ✅ T045 · Register-Seite *(US-13)*
 **Felder:** Username, E-Mail, Passwort, Passwort bestätigen · Validation mit `react-hook-form` + `zod`
 
+**API-Aufruf:** `POST /api/auth/register` mit Body `{ username, email, password, passwordConfirm }` — **alle vier Felder Pflicht**, sonst 400 vom Backend (siehe T025).
+
+**Frontend-seitige Validation (zod-Schema, sollte mit Backend-Regeln übereinstimmen):**
+- `username`: 3–50 Zeichen
+- `email`: valides E-Mail-Format
+- `password`: min. 8 Zeichen
+- `passwordConfirm`: muss `password` entsprechen (`refine`-Check in zod)
+
+**Fehler-Anzeige:** Bei 400 → Feld-spezifische Fehler aus der Response-Map anzeigen (z. B. unter dem jeweiligen Input). Bei 409 → globale Meldung „Username oder E-Mail bereits vergeben".
+
 ---
 
-### T046 · Bug-Liste-Seite (/bugs) *(US-02)*
+### ✅ T046 · Bug-Liste-Seite (/bugs) *(US-02)*
 **Spalten:** ID, Titel, Status (farbiges Badge), Priorität, Tag, Bearbeiter, Erstelldatum
 **Leerer Zustand:** Hinweis + Button „Neuer Bug"
 **Pagination:** 50 pro Seite
 
 ---
 
-### T047 · Bug-Detail-Seite (/bugs/:id) *(US-03)*
+### ✅ T047 · Bug-Detail-Seite (/bugs/:id) *(US-03)*
 **Enthält:**
 - Alle Bug-Felder
 - Edit-Button → öffnet Bearbeiten-Formular
@@ -840,17 +1006,24 @@ npx tailwindcss init -p
 
 ---
 
-### T048 · Bug-Erstellen-Formular *(US-01)*
+### ✅ T048 · Bug-Erstellen-Formular *(US-01)*
 **Felder:** Titel (Pflicht), Beschreibung (Pflicht), Priorität (optional), Tag (optional)
+
+**Status (12.05.2026, PR #17):** Implementiert (Maksim).
+- `pages/BugCreatePage.tsx` — Form mit Title (max 255 + Live-Counter), Description, Priority-Dropdown, Tags als Toggle-Buttons
+- `lib/api.ts`: `api.createBug()` + `CreateBugInput`-Type
+- `lib/seedTags.ts`: 4 Seed-Tags aus V2-Migration hardcoded (TODO → T038a für `GET /api/tags`)
+- Route `/bugs/new` mit `ProtectedRoute`, „+ new"-Button im BugListPage-Header
+- Mit-gefixt: BugDao-Bug in BugRowMapper (`TIMESTAMP WITH TIME ZONE` → `OffsetDateTime` statt direkt `LocalDateTime`, sonst PSQLException sobald Tabelle nicht leer)
 
 ---
 
-### T049 · Bug-Bearbeiten-Formular *(US-04)*
+### ✅ T049 · Bug-Bearbeiten-Formular *(US-04)*
 **Vorbefülltes Formular** · Submit `PUT /api/bugs/{id}` · Abbrechen verwirft Änderungen
 
 ---
 
-### T050 · Inline-Editing-Dropdowns *(US-06, US-07, US-08)*
+### ✅ T050 · Inline-Editing-Dropdowns *(US-06, US-07, US-08)*
 **Was:** Status, Priorität, Bearbeiter, Tag direkt in Detail-Seite ändern.
 
 **Ruft auf:**
@@ -861,23 +1034,23 @@ npx tailwindcss init -p
 
 ---
 
-### T051 · Archivieren-Button + Reaktivieren *(US-05)*
+### ✅ T051 · Archivieren-Button + Reaktivieren *(US-05)*
 
 ---
 
-### T052 · Hauptlayout + Navigation
+### ✅ T052 · Hauptlayout + Navigation
 **Header:** Logo · Nav-Links (Bugs, Admin-Bereich für ADMIN) · Username · Logout-Button
 
 ---
 
-### T053 · Filter-UI in Bug-Liste *(US-09)*
+### ✅ T053 · Filter-UI in Bug-Liste *(US-09)*
 **Filter:** Status, Priorität, Tag, Bearbeiter
 **URL-Sync:** Filter als Query-Parameter → URL teilbar
 **Reset-Button** stellt Default-Liste wieder her
 
 ---
 
-### T053a · AdminTagsPage (Frontend) *(neu — FA-16)*
+### ✅ T053a · AdminTagsPage (Frontend) *(neu — FA-16)*
 **Was:** UI für Tag-Verwaltung, nur ADMIN sichtbar.
 
 **Features:**
@@ -894,7 +1067,7 @@ npx tailwindcss init -p
 
 ---
 
-### T053b · AdminUsersPage (Frontend) *(neu — FA-15)*
+### ✅ T053b · AdminUsersPage (Frontend) *(neu — FA-15)*
 **Was:** UI für Benutzerverwaltung, nur ADMIN sichtbar.
 
 **Features:**
@@ -909,7 +1082,7 @@ npx tailwindcss init -p
 
 ---
 
-### T054 · Toast-Notifications
+### ✅ T054 · Toast-Notifications
 
 | Aktion | Meldung | Dauer |
 |--------|---------|-------|
@@ -922,7 +1095,7 @@ npx tailwindcss init -p
 
 ---
 
-### T055 · Loading-States + Error-Handling
+### ✅ T055 · Loading-States + Error-Handling
 **Skeleton-Loader oder Spinner** während API-Calls · Error-Boundary für unerwartete Fehler · Benutzerfreundliche Meldungen
 
 ---
@@ -935,7 +1108,7 @@ npx tailwindcss init -p
 
 ---
 
-### T056 · V3-Migration: Activity-Tabelle
+### ✅ T056 · V3-Migration: Activity-Tabelle
 ```sql
 CREATE TABLE activities (
     id         BIGSERIAL PRIMARY KEY,
@@ -945,25 +1118,47 @@ CREATE TABLE activities (
     field      VARCHAR(50),
     old_value  TEXT,
     new_value  TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 ```
 
+**Status (10.05.2026, PR #14):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- `TIMESTAMP WITH TIME ZONE` statt nur `TIMESTAMP` (konsistent mit V1/V2)
+- `DEFAULT CURRENT_TIMESTAMP` statt `NOW()` (Stil-Konsistenz mit V1/V2)
+- Index `idx_activities_bug_created` ergänzt für T058-Performance (composite passt zu `WHERE bug_id ORDER BY created_at DESC`)
+- Branch wurde vor Merge auf aktuellen develop rebased (war von Stand vor T034 abgezweigt)
+- T057 jetzt entblockt
+
 ---
 
-### T057 · ActivityDao + Activity-Tracking in BugService
+### ✅ T057 · ActivityDao + Activity-Tracking in BugService
 **Was:** Bei jedem Bug-Update automatisch Activity-Einträge erzeugen.
 
-**Erfasste Änderungen:** Status, Priorität, Bearbeiter, Titel, Beschreibung, Tag
+**Erfasste Änderungen:** Status, Titel, Beschreibung, Tag (Priorität + Bearbeiter folgen mit T036b + T037)
+
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `model/Activity.java` Record mit polymorphem action/field/old/new Schema
+- `dao/ActivityDao.java`: insert + findByBugId, nutzt Index aus T056
+- `service/BugService.java`: createBug logt CREATED, updateBug logt UPDATED pro geändertem Feld, updateStatus logt UPDATED-status
+- `@Transactional` auf alle Write-Methoden — atomar Bug + Activity
+- 5 ActivityDaoTest + Live-Test gegen Postgres
 
 ---
 
-### T058 · GET /api/bugs/{id}/activities Endpoint
+### ✅ T058 · GET /api/bugs/{id}/activities Endpoint
 **Was:** Chronologische Liste (neueste oben).
 
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `service/ActivityService.java` mit Existenz-Check auf Bug (404 statt leere Liste)
+- `controller/ActivityController.java` mit GET-Endpoint
+- `controller/dto/ActivityResponse.java` als API-Form
+- Auth: jeder authentifizierte User darf lesen
+
 ---
 
-### T059 · Bug-Historie-Anzeige im Frontend *(US-14)*
+### ✅ T059 · Bug-Historie-Anzeige im Frontend *(US-14)*
 **Timeline-Komponente** in Bug-Detail-Seite.
 
 **Anzeige:** Zeitstempel · User · Aktion (z.B. „Status geändert: NEU → IN_BEARBEITUNG")
@@ -971,7 +1166,7 @@ CREATE TABLE activities (
 
 ---
 
-### T060 · Suchfeld in Bug-Liste (Frontend + Backend) *(US-10)*
+### ✅ T060 · Suchfeld in Bug-Liste (Frontend + Backend) *(US-10)*
 **Frontend:** Suchfeld mit 300ms Debounce · Treffer-Hervorhebung
 **Backend:** `GET /api/bugs?search=login` — case-insensitive ILIKE
 **Kombinierbar** mit Status/Priority/Tag-Filter
@@ -983,7 +1178,7 @@ CREATE TABLE activities (
 
 ---
 
-### T062 · (KANN) Kommentare-Frontend
+### ✅ T062 · (KANN) Kommentare-Frontend
 **Plain-Text** · Chronologische Sortierung (älteste oben) · Submit-Button deaktiviert wenn leer
 
 ---
@@ -1005,8 +1200,16 @@ Login mit gültigen/ungültigen Credentials · Registrierung · Doppelter-Userna
 
 ---
 
-### T065 · Unit-Tests für BugService *(US-01 bis US-08)*
+### ✅ T065 · Unit-Tests für BugService *(US-01 bis US-08)*
 Bug-CRUD · **Alle State-Machine-Übergänge (erlaubt + verboten)** · Soft-Delete + Reaktivierung · Bearbeiter-Zuweisung · **Prioritätsänderung** *(neu — FA-07)*
+
+**Status (15.05.2026, PR #27):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- 14 Mockito-Unit-Tests in neuer Klasse `BugServiceCrudStatusArchiveTest`: `createBug` (defaults Status/Priority), `updateBug` (Reporter + 403 fremder Tester + 409 archived), `updateStatus` (allowed/forbidden Transition via Mock + 403 Tester), `archiveBug` (Happy + 409 doppelt), `restoreBug` (Happy + 409 aktiv).
+- **Design**: `BugStatusStateMachine` wird gemockt (`@Mock`), nicht real verwendet — BugService-Tests sind dadurch immun gegen Policy-Änderungen der State-Machine. Bearbeiter-Zuweisung (T037) und Priority (T036b) haben bereits eigene Test-Klassen (`BugServiceAssigneeTest`, `BugServicePriorityTest`).
+- **Adapt:** Branch zweigte von `c6e49aa` ab. Git's 3-way-Merge mergte `BugStatusStateMachineTest` automatisch, **erkannte aber keinen semantischen Konflikt**: T065 ergänzte `allTransitionsMatchDocumentedPolicy` mit ALTER strikter Policy (NEU → IN_BEARBEITUNG/ARCHIVIERT only), develop hatte parallel im Sprint1-Merge die State-Machine gelockert. Beide Tests im selben File widersprachen sich (`NEU → IM_REVIEW`: T065 sagt `false`, develop sagt `true`). T065's veralteter Test + `allowedTargets`-Helper gedroppt, develop's neue Tests behalten. T065 reduziert sich netto auf die reine Hinzufügung von `BugServiceCrudStatusArchiveTest`.
+- **Tests:** 79/79 Backend-Tests grün (vorher 68, +11 netto).
+
+---
 
 ---
 
@@ -1034,9 +1237,17 @@ End-to-End via MockMvc: Login → /me → Logout · HTTP-Status + Cookie-Handlin
 
 ---
 
-### T067 · Integration-Tests für Bug-Endpoints
+### ✅ T067 · Integration-Tests für Bug-Endpoints
 **Bug-Lifecycle:** Erstellen → Bearbeiten → Status ändern → Archivieren.
 **Deckt UC-01, UC-02, UC-03 ab.**
+
+**Status (15.05.2026, PR #28):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- `BugLifecycleIntegrationTest` mit einem End-to-End-`@Test` (`fullBugLifecycle_createEditChangeStatusAndArchive`): Login als DEVELOPER → POST `/api/bugs` (priority=HOCH, 2 Tags) → PUT `/api/bugs/{id}` (Titel+Beschreibung+neue Tags) → PATCH `/status` (NEU → IN_BEARBEITUNG) → PATCH `/archive` → Verifikation `archived` hidden by default + sichtbar mit `?archived=true`.
+- **Setup**: `@SpringBootTest` + H2 In-Memory (PostgreSQL-Mode), Flyway disabled, Schema via `@BeforeEach` mit raw `CREATE TABLE` (users, tags, bugs, bug_tags, activities); BCrypt-Hash für `admin123` passt zum V4-Seed.
+- **Echtes Auth-Flow** mit Cookie-Session, nicht gemockt. Prüft tagIds, reporterName, status-Transitionen, archived-Filter.
+- **Adapt:** Branch zweigte von `c6e49aa` ab — Rebase auf `develop` konfliktfrei (einzige neue Datei, keine Überschneidungen). Keine semantische Adaption nötig.
+- **Tests:** 80/80 Backend-Tests grün (vorher 79, +1 Lifecycle-Test).
+- **Follow-ups offen (außerhalb Scope):** (a) Activity-Log-Verifikation im E2E (`activities`-Tabelle wird angelegt, aber nicht in Assertions geprüft — Coverage liegt bei T065-Unit-Tests); (b) Schema-Drift-Risiko da Test-Schema manuell gepflegt statt via Flyway; (c) Fehlerpfade (403/409/404) sind in Unit-Tests abgedeckt, nicht im E2E.
 
 ---
 
@@ -1048,7 +1259,7 @@ End-to-End via MockMvc: Login → /me → Logout · HTTP-Status + Cookie-Handlin
 
 ---
 
-### T068 · Frontend Unit-Tests (Vitest + Testing Library)
+### ✅ T068 · Frontend Unit-Tests (Vitest + Testing Library)
 Mind. 5 Tests: Login-Formular, Bug-Erstellen-Formular, Auth-Context, ProtectedRoute, StatusDropdown.
 
 ---
@@ -1105,7 +1316,7 @@ PostgreSQL auf Hosting-Plattform · Connection-String als Env-Variable · Flyway
 
 ---
 
-### T074 · Environment-Variablen-Setup
+### ✅ T074 · Environment-Variablen-Setup
 ```
 DATABASE_URL=postgresql://...
 SPRING_PROFILES_ACTIVE=prod

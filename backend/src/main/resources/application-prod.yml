@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: bugtracker
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+# CORS-Konfiguration — APP_CORS_ALLOWED_ORIGIN als Pflicht-Env-Var setzen
+# (kein Default in prod; Boot scheitert, falls fehlend → fail-fast bei Misconfig).
+app:
+  cors:
+    allowed-origin: ${APP_CORS_ALLOWED_ORIGIN}
+

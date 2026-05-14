@@ -99,6 +99,8 @@ nbbuild/
 nbdist/
 .nb-gradle/
 
+
+.screenshots/
 # ============================
 # AI-Assistenten
 # ============================
@@ -129,7 +131,6 @@ CLAUDE.md
 *.pem
 *.key
 secrets/
-application-prod.yml
 application-secrets.yml
 application-local.yml
 

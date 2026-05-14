@@ -1,0 +1,25 @@
+# Ignore Maven build output
+/target
+
+# IDE and OS files
+/.idea
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Node/Frontend (if present in monorepo)
+/node_modules
+/frontend
+
+# Logs
+*.log
+
+# Misc
+*.class
+

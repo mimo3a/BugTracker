@@ -17,5 +17,24 @@ services:
       retries: 10
     restart: unless-stopped
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bugtracker-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/bugtracker
+      DATABASE_USERNAME: bugtracker
+      DATABASE_PASSWORD: bugtracker
+      APP_CORS_ALLOWED_ORIGIN: http://localhost:5173
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
 volumes:
   postgres_data:

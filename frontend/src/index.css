@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design tokens — terminal-inspired palette mirroring the legacy Thymeleaf UI.
+  RGB triplets so Tailwind's `<alpha-value>` resolves correctly in `colors`.
+*/
+:root {
+  --r: 6px;
+
+  --bg: 246 244 238; /* #f6f4ee cream */
+  --surface: 255 255 255;
+  --surface-2: 240 238 232;
+  --ink: 10 10 10; /* #0a0a0a */
+  --ink-soft: 110 110 110;
+  --on-ink: 250 250 250;
+  --border: 220 218 211;
+  --accent: 211 255 54; /* #d3ff36 lime */
+  --accent-fg: 10 10 10;
+
+  --green-bg: 220 247 215;
+  --green-fg: 22 101 52;
+  --amber-bg: 254 243 199;
+  --amber-fg: 146 64 14;
+  --orange-bg: 255 220 188;
+  --orange-fg: 154 52 18;
+  --red-bg: 254 226 226;
+  --red-fg: 153 27 27;
+  --blue-bg: 219 234 254;
+  --blue-fg: 30 64 175;
+  --purple-bg: 233 213 255;
+  --purple-fg: 88 28 135;
+  --slate-bg: 226 232 240;
+  --slate-fg: 51 65 85;
+}
+
+.dark {
+  --bg: 10 10 10;
+  --surface: 22 22 22;
+  --surface-2: 32 32 32;
+  --ink: 240 240 240;
+  --ink-soft: 160 160 160;
+  --on-ink: 10 10 10;
+  --border: 50 50 50;
+  --accent: 211 255 54;
+  --accent-fg: 10 10 10;
+
+  --green-bg: 22 78 52;
+  --green-fg: 187 247 208;
+  --amber-bg: 120 53 15;
+  --amber-fg: 254 240 138;
+  --orange-bg: 124 45 18;
+  --orange-fg: 254 215 170;
+  --red-bg: 127 29 29;
+  --red-fg: 254 202 202;
+  --blue-bg: 30 58 138;
+  --blue-fg: 191 219 254;
+  --purple-bg: 88 28 135;
+  --purple-fg: 233 213 255;
+  --slate-bg: 51 65 85;
+  --slate-fg: 226 232 240;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

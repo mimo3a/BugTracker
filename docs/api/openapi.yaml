@@ -210,14 +210,20 @@ paths:
             $ref: '#/components/schemas/Priority'
         - name: assigneeId
           in: query
+          description: Nach Bearbeiter-ID filtern
           schema:
             type: integer
             format: int64
-        - name: tagId
+        - name: tagIds
           in: query
+          description: Nach Tag-IDs filtern (multi, OR-Semantik — Bug matched, wenn mind. ein Tag passt)
           schema:
-            type: integer
-            format: int64
+            type: array
+            items:
+              type: integer
+              format: int64
+          style: form
+          explode: true
         - name: search
           in: query
           description: Volltext-Suche im Titel (FA-10, T060)
@@ -235,13 +241,6 @@ paths:
             type: integer
             default: 0
             minimum: 0
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-            default: 50
-            minimum: 1
-            maximum: 200
       responses:
         '200':
           description: Bug-Liste
@@ -308,11 +307,11 @@ paths:
       tags: [Bugs]
       summary: Bug bearbeiten (FA-04, T034)
       description: |
-        Bearbeitet Titel und/oder Beschreibung.
+        Bearbeitet Titel, Beschreibung und Tag-Zuordnungen.
         Priorität ändert sich via separatem Endpoint (PATCH /priority).
-        Erzeugt Activity-Einträge für jedes geänderte Feld (FA-14).
+        Activity-Einträge folgen mit FA-14 (Migration T056).
 
-        **Rolle:** DEVELOPER, ADMIN
+        **Rolle:** DEVELOPER, ADMIN, sowie TESTER für eigene Bugs (Reporter).
       operationId: updateBug
       requestBody:
         required: true
@@ -335,25 +334,45 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Bug ist archiviert und kann nicht bearbeitet werden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-    delete:
+  /api/bugs/{id}/archive:
+    parameters:
+      - $ref: '#/components/parameters/BugIdPath'
+    patch:
       tags: [Bugs]
       summary: Bug archivieren — Soft-Delete (FA-05, T035)
       description: |
-        Setzt `archived = true`. Der Bug bleibt in der DB erhalten und kann
-        via PATCH /restore wieder reaktiviert werden.
+        Setzt `archived = true` und `status = ARCHIVIERT`. Der Bug bleibt in der DB
+        erhalten und kann via PATCH /restore wieder reaktiviert werden. Erzeugt
+        einen Activity-Eintrag (`field=archived`, `false`→`true`).
 
         **Rolle:** DEVELOPER, ADMIN
       operationId: archiveBug
       responses:
-        '204':
+        '200':
           description: Bug archiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bug'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Bug ist bereits archiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/bugs/{id}/restore:
     parameters:
@@ -361,7 +380,11 @@ paths:
     patch:
       tags: [Bugs]
       summary: Bug reaktivieren (FA-05, T035)
-      description: Setzt `archived = false`. **Rolle:** DEVELOPER, ADMIN
+      description: |
+        Setzt `archived = false` und `status = NEU` (Workflow-Reset, da `ARCHIVIERT`
+        terminal ist). Erzeugt einen Activity-Eintrag (`field=archived`, `true`→`false`).
+
+        **Rolle:** DEVELOPER, ADMIN
       operationId: restoreBug
       responses:
         '200':
@@ -376,6 +399,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Bug ist nicht archiviert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/bugs/{id}/status:
     parameters:
@@ -406,20 +435,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Bug'
-        '400':
-          description: Ungültiger Statuswechsel
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: Ungültiger Statuswechsel von ERLEDIGT zu NEU
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            Statuswechsel nicht erlaubt (State-Machine-Verletzung) ODER
+            Bug ist archiviert. Im Body steht welcher.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                stateMachine:
+                  value:
+                    error: "Status-Wechsel nicht erlaubt: ERLEDIGT → NEU"
+                archived:
+                  value:
+                    error: "Archivierter Bug kann nicht bearbeitet werden"
 
   /api/bugs/{id}/priority:
     parameters:
@@ -909,7 +945,6 @@ components:
       required:
         - id
         - title
-        - description
         - status
         - priority
         - reporterId
@@ -1080,6 +1115,7 @@ components:
 
     UpdateBugRequest:
       type: object
+      required: [title, description]
       properties:
         title:
           type: string
@@ -1088,9 +1124,15 @@ components:
         description:
           type: string
           minLength: 1
-        tagId:
-          type: integer
-          format: int64
+          maxLength: 10000
+        tagIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          description: |
+            M:N — komplette Tag-Zuordnung. Wenn `null`, bleiben bestehende Tags erhalten;
+            leere Liste entfernt alle Tags.
           nullable: true
 
     UpdateStatusRequest:
