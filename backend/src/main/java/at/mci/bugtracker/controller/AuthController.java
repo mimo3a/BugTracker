@@ -51,11 +51,7 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/login")
-    public ResponseEntity<UserWithoutHash> login(@RequestBody Requests.Login body, HttpServletResponse response) {
-        if (isBlank(body.username()) || isBlank(body.password())) {
-            throw new HttpException(400, "Invalid request");
-        }
-
+    public ResponseEntity<UserWithoutHash> login(@Valid @RequestBody Requests.Login body, HttpServletResponse response) {
         User user = users.findByUsername(body.username());
 
         if (user == null || !PasswordHasher.verify(body.password(), user.passwordHash())) {
@@ -86,14 +82,8 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/change-password")
-    public ResponseEntity<Void> changePassword(@RequestBody Requests.ChangePassword body) {
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody Requests.ChangePassword body) {
         SessionStore.Session s = CurrentSession.require();
-        if (isBlank(body.currentPassword()) || isBlank(body.newPassword())) {
-            throw new HttpException(400, "Invalid request");
-        }
-        if (body.newPassword().length() < 6) {
-            throw new HttpException(400, "Password must be at least 6 characters");
-        }
         User uh = users.findById(s.userId());
         if (uh == null) throw new HttpException(404, "User not found");
         if (!PasswordHasher.verify(body.currentPassword(), uh.passwordHash())) {
@@ -107,10 +97,6 @@ public class AuthController {
     public Object listUsers() {
         CurrentSession.require();
         return users.findAll();
-    }
-
-    static boolean isBlank(String s) {
-        return s == null || s.isBlank();
     }
 
     private static void setSessionCookie(HttpServletResponse response, String token) {
@@ -132,4 +118,3 @@ public class AuthController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }
-
