@@ -791,7 +791,7 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T038 · Bean-Validation für alle Request-Bodies
+### ✅ T038 · Bean-Validation für alle Request-Bodies
 **Beispiel:**
 ```java
 public record CreateBugRequest(
@@ -801,6 +801,15 @@ public record CreateBugRequest(
     Long tagId
 ) {}
 ```
+
+**Status (14.05.2026, PR #25):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- `@Valid` + Constraints auf Auth-DTOs in `Requests.java` (Register/Login/ChangePassword): `@NotBlank`, `@Size`, `@Email`; Passwort behält zusätzlich `@Pattern(.*\d.*)` aus develop (Sicherheits-Regel — Zahl im Passwort Pflicht).
+- `AuthController`: manuelle `isBlank`-Checks entfernt → ersetzt durch `@Valid`.
+- `BugController.updateAssignee` (T037): `@Valid` ergänzt (DTO selbst noch ohne Constraints — `null = unassign` bleibt zulässig).
+- `GlobalExceptionHandler.handleValidation`: `LinkedHashMap` für deterministische Feld-Reihenfolge, null-safe Default-Message, Merge-Function bei doppelten Constraints (behält erste).
+- **Adapt:** Müll-Commit `e1db824` (fremde Dev-Setup-Reste: AGENTS.md, leere `package-lock.json` im Repo-Root, `skills/spring-security/SKILL.md`) per Rebase entfernt; Konflikt in `Requests.java` als Union beider Seiten gelöst (develop's `@Pattern` + T038's `@Size(min=8, max=255)`); zerstörte Umlaute restauriert ("Ungueltiges" → "Ungültiges", "Passwort-Bestaetigung" → "Passwort-Bestätigung"); `BugControllerTest.pageSize`-Assertion auf `DEFAULT_PAGE_SIZE=20` korrigiert.
+- **Tests nachgeliefert:** `AuthControllerTest` (3 Tests: Login/Register/ChangePassword mit deutschen Field-Messages), `BugControllerTest` (Validation für POST/PUT `/api/bugs` + Filter/Pagination-Coverage). 61/61 Backend-Tests grün.
+- **Follow-up offen (außerhalb Scope):** Tote Records in `Requests.java` (`CreateBug`, `UpdateBug`, `BulkUpdateBugs`, `CreateProject`, …) werden von keinem Controller mehr genutzt — echte Bug-DTOs leben in `controller/dto/`. Cleanup-Ticket wert.
 
 ---
 
