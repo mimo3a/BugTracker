@@ -3,11 +3,27 @@ package at.mci.bugtracker.service;
 import at.mci.bugtracker.model.BugStatus;
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BugStatusStateMachineTest {
 
     private final BugStatusStateMachine sm = new BugStatusStateMachine();
+
+    @Test
+    void allTransitionsMatchDocumentedPolicy() {
+        for (BugStatus from : BugStatus.values()) {
+            for (BugStatus to : BugStatus.values()) {
+                boolean expected = from == to || allowedTargets(from).contains(to);
+
+                assertThat(sm.canTransition(from, to))
+                        .as("%s -> %s", from, to)
+                        .isEqualTo(expected);
+            }
+        }
+    }
 
     @Test
     void selfTransitionIsAlwaysAllowed() {
@@ -56,5 +72,15 @@ class BugStatusStateMachineTest {
                     .as("ARCHIVIERT → %s should be blocked", s)
                     .isFalse();
         }
+    }
+
+    private static Set<BugStatus> allowedTargets(BugStatus from) {
+        return switch (from) {
+            case NEU -> EnumSet.of(BugStatus.IN_BEARBEITUNG, BugStatus.ARCHIVIERT);
+            case IN_BEARBEITUNG -> EnumSet.of(BugStatus.IM_REVIEW, BugStatus.ARCHIVIERT);
+            case IM_REVIEW -> EnumSet.of(BugStatus.ERLEDIGT, BugStatus.ABGELEHNT, BugStatus.ARCHIVIERT);
+            case ERLEDIGT, ABGELEHNT -> EnumSet.of(BugStatus.ARCHIVIERT);
+            case ARCHIVIERT -> EnumSet.noneOf(BugStatus.class);
+        };
     }
 }
