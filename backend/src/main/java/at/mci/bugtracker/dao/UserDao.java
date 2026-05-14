@@ -75,6 +75,10 @@ public class UserDao {
         db.update("UPDATE users SET role = ? WHERE id = ?", role.name(), id);
     }
 
+    public void updateActive(long id, boolean active) {
+        db.update("UPDATE users SET active = ? WHERE id = ?", active, id);
+    }
+
     public void updatePassword(long id, String passwordHash) {
         db.update("UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, id);
     }

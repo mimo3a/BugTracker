@@ -18,8 +18,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Set;
-
 @RestController
 public class AuthController {
     private final UserDao users;
@@ -91,12 +89,6 @@ public class AuthController {
         }
         users.updatePassword(s.userId(), PasswordHasher.hash(body.newPassword()));
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/api/users")
-    public Object listUsers() {
-        CurrentSession.require();
-        return users.findAll();
     }
 
     private static void setSessionCookie(HttpServletResponse response, String token) {

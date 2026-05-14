@@ -337,10 +337,25 @@ services:
 
 ---
 
-### T014 · GitHub Actions CI Pipeline (Frontend)
-**Datei:** `.github/workflows/ci-frontend.yml`
+### T014 · CI Pipeline (Frontend) + Hosting/Deploy
+**Status (15.05.2026):** Backend-CI existiert bereits in `.github/workflows/ci-backend.yml` (Java 21 + Postgres 16, läuft auf GitHub-Spiegelung). Frontend-CI fehlt komplett. Repo-Origin ist MCI-Gitea, GitHub ist Spiegel-Target.
 
-**Pipeline:** Checkout → Node 20 → `npm install` → `npm run lint` → `npm run typecheck` → `npm run build`
+**Datei:** `.github/workflows/ci-frontend.yml` (analog zum Backend-Pendant).
+
+**Pipeline (CI):** Checkout → Node 20 → `cd frontend && npm ci` → `npm run lint` (sofern vorhanden, sonst skip) → `npm run typecheck` (oder `tsc --noEmit`) → `npm run test:run` → `npm run build`. Trigger: push/PR auf `main`/`develop`, nur bei Änderungen in `frontend/**`.
+
+**Hosting/CD:**
+- **Frontend → Vercel** (Hobby, dauerhaft kostenlos). `frontend/vercel.json` ist bereits da, nur Project Import + Build Settings (Framework=Vite, Build Command=`npm run build`, Output Directory=`dist`, Root Directory=`frontend`) eintragen.
+- **Backend → Render** Web Service (free 750h/Monat, schläft nach 15min) oder **Fly.io** (3 Apps gratis, kein Sleep). Verwendet `backend/Dockerfile` + `application-prod.yml`.
+- **DB → Neon** Postgres (0.5 GB dauerhaft frei, kein Sleep, kein 90-Tage-Limit). Connection-String als Env-Var ins Backend.
+- **Gitea ↔ GitHub-Mirror** einrichten (Gitea Settings → Repo-Mirroring), damit Vercel/Render Push-getriggert deployen können.
+
+**Definition of Done:**
+- Frontend-CI läuft grün auf jeden PR (über Gitea→GitHub-Spiegelung).
+- Frontend ist unter einer öffentlichen Vercel-URL erreichbar (z.B. `bugtracker-se2.vercel.app`).
+- Backend ist unter Render/Fly.io-URL erreichbar (z.B. `bugtracker-api.onrender.com`).
+- Demo-Login mit `admin/admin123` funktioniert gegen die Produktion.
+- README.md verlinkt beide URLs.
 
 ---
 
@@ -850,14 +865,21 @@ public record CreateBugRequest(
 
 ---
 
-### T038b · Admin-User-Management Backend *(neu — FA-15 AC1+AC2)*
+### ✅ T038b · Admin-User-Management Backend *(neu — FA-15 AC1+AC2)*
 **Was:** Endpoints für Admin-Übersicht aller User und Rollen-Änderung.
 
-**Endpoints:**
+**Endpoints (final, an Frontend-Contract angepasst):**
 | Methode | URL | Beschreibung | Rolle |
 |---------|-----|--------------|-------|
-| `GET`   | `/api/users`            | Alle User mit Rolle | ADMIN |
-| `PATCH` | `/api/users/{id}/role`  | Rolle ändern: `{ "role": "DEVELOPER" }` | ADMIN |
+| `GET`   | `/api/users`     | Alle User (UserWithoutHash); aus AuthController nach `UserController` refactored | eingeloggt (alle) |
+| `PATCH` | `/api/users/{id}` | Body `{ role?: UserRole, active?: boolean }` — beide optional, mind. eines gesetzt | ADMIN |
+
+**Status (15.05.2026, PR #29):** Implementiert (Maksim) — Solo-Build nach Sprint1-Backend-Review-Cluster.
+- Neue Klasse `UserController` + `UserService` + DTO `UpdateUserRequest` (in `controller/dto/`); `UserDao.updateActive(id, active)` ergänzt; `listUsers` aus `AuthController` rausgezogen.
+- **Lock-out-Schutz (FA-15)**: ADMIN darf weder eigene Rolle ändern noch sich selbst deaktivieren → 400 mit deutscher Fehlermeldung. ADMIN darf eigene Rolle auf "ADMIN" setzen (no-op, kein Lock-out-Risiko).
+- **403** für nicht-ADMIN auf PATCH; **404** bei unbekanntem Target.
+- **Tests**: 10 `UserServiceTest` (Mockito) + 6 `UserControllerTest` (WebMvcTest), 96/96 Backend-Tests grün (+16 netto).
+- **GET `/api/users`-Semantik**: bleibt für alle eingeloggten User (Frontend ruft das im BugForm für Assignee-Dropdown auf — wäre sonst Breaking-Change). PasswordHash war sowieso nie im Response.
 
 **Validierung:**
 - Rolle muss in `{ TESTER, DEVELOPER, ADMIN }` sein
