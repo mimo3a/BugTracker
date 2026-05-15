@@ -43,8 +43,7 @@ const pillBase =
 function describeApiError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
     if (err.status === 403) return 'keine berechtigung'
-    if (err.status === 404) return 'endpoint nicht verfügbar (backend folgt)'
-    if (err.status === 405) return 'methode noch nicht implementiert (backend)'
+    if (err.status === 404) return 'nicht gefunden'
     if (err.status === 409) return err.message || 'konflikt — zustand neu laden'
     return err.message || fallback
   }
@@ -59,7 +58,7 @@ export function BugDetailPage() {
   const { bug, loading, notFound, error: loadError, refresh, setBug } = useBug(bugId)
   const { activities, loading: actLoading, error: actError, refresh: refreshActivities } =
     useActivities(bugId)
-  const { users, tags, usingMockTags } = useFilterOptions()
+  const { users, tags } = useFilterOptions()
 
   const [busyStatus, setBusyStatus] = useState(false)
   const [busyAssignee, setBusyAssignee] = useState(false)
@@ -253,37 +252,31 @@ export function BugDetailPage() {
             <h2 className="font-mono text-xs text-ink-soft uppercase tracking-wide mb-2">
               tags
             </h2>
-            {usingMockTags ? (
-              <p className="font-mono text-xs text-amber-fg" role="status">
-                tag-zuordnung deaktiviert · /api/tags noch nicht implementiert (T038a)
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {tags.length === 0 && (
-                  <span className="font-mono text-xs text-ink-soft italic">
-                    keine tags vorhanden.
-                  </span>
-                )}
-                {tags.map((tag) => {
-                  const active = currentBug.tagIds.includes(tag.id)
-                  return (
-                    <button
-                      type="button"
-                      key={tag.id}
-                      onClick={() => toggleTag(tag.id)}
-                      disabled={busyTags}
-                      className={`font-mono text-xs px-2 py-1 rounded border transition-colors ${
-                        active
-                          ? 'bg-ink text-bg border-ink'
-                          : 'bg-bg text-ink-soft border-border hover:text-ink'
-                      } disabled:opacity-50`}
-                    >
-                      {tag.name}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {tags.length === 0 && (
+                <span className="font-mono text-xs text-ink-soft italic">
+                  keine tags vorhanden.
+                </span>
+              )}
+              {tags.map((tag) => {
+                const active = currentBug.tagIds.includes(tag.id)
+                return (
+                  <button
+                    type="button"
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.id)}
+                    disabled={busyTags}
+                    className={`font-mono text-xs px-2 py-1 rounded border transition-colors ${
+                      active
+                        ? 'bg-ink text-bg border-ink'
+                        : 'bg-bg text-ink-soft border-border hover:text-ink'
+                    } disabled:opacity-50`}
+                  >
+                    {tag.name}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 

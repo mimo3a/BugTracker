@@ -8,7 +8,7 @@ import { useBugs, useFilterOptions } from '../hooks/useBugs'
 
 export function BugListPage() {
   const { filters, setFilters, reset, isDirty } = useBugFilters()
-  const { users, tags, usingMockTags } = useFilterOptions()
+  const { users, tags } = useFilterOptions()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const pageRaw = searchParams.get('page')
@@ -52,13 +52,6 @@ export function BugListPage() {
           + new bug
         </Link>
       </header>
-
-      {usingMockTags && (
-        <p className="font-mono text-[11px] text-amber-fg mb-2" role="status">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-fg mr-1.5 align-middle" />
-          tags zeigen mock-daten · /api/tags antwortet nicht
-        </p>
-      )}
 
       <FilterBar
         filters={filters}

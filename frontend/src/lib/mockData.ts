@@ -1,4 +1,4 @@
-import type { Bug, Tag, User } from '../types/bug'
+import type { Bug, User } from '../types/bug'
 
 export const MOCK_USERS: User[] = [
   { id: 1, username: 'marie' },
@@ -6,14 +6,6 @@ export const MOCK_USERS: User[] = [
   { id: 3, username: 'lukas' },
   { id: 4, username: 'anna' },
   { id: 5, username: 'admin' },
-]
-
-export const MOCK_TAGS: Tag[] = [
-  { id: 1, name: 'Backend', color: '#3b82f6' },
-  { id: 2, name: 'Frontend', color: '#a855f7' },
-  { id: 3, name: 'Database', color: '#10b981' },
-  { id: 4, name: 'Auth', color: '#ef4444' },
-  { id: 5, name: 'UX', color: '#f59e0b' },
 ]
 
 export const MOCK_BUGS: Bug[] = [

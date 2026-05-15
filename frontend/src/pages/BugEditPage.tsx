@@ -13,7 +13,7 @@ export function BugEditPage() {
   const navigate = useNavigate()
   const bugId = id && /^\d+$/.test(id) ? Number(id) : null
   const { bug, loading, notFound, error: loadError } = useBug(bugId)
-  const { tags, usingMock: tagsAreMock } = useTags()
+  const { tags } = useTags()
 
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -102,7 +102,7 @@ export function BugEditPage() {
       </header>
 
       <BugForm
-        tags={tagsAreMock ? [] : tags}
+        tags={tags}
         initial={{ title: bug.title, description: bug.description ?? '', tagIds: bug.tagIds }}
         submitLabel="save"
         submitting={submitting}
@@ -110,18 +110,11 @@ export function BugEditPage() {
         onSubmit={handleSubmit}
         onCancel={() => navigate(`/bugs/${bug.id}`)}
         topAlert={
-          <>
-            {bug.archived && (
-              <p className="font-mono text-xs text-amber-fg" role="alert">
-                Dieser Bug ist archiviert. Speichern wird mit 409 abgelehnt — erst reaktivieren.
-              </p>
-            )}
-            {tagsAreMock && (
-              <p className="font-mono text-xs text-amber-fg" role="status">
-                tag-auswahl deaktiviert · /api/tags noch nicht implementiert (T038a)
-              </p>
-            )}
-          </>
+          bug.archived ? (
+            <p className="font-mono text-xs text-amber-fg" role="alert">
+              Dieser Bug ist archiviert. Speichern wird mit 409 abgelehnt — erst reaktivieren.
+            </p>
+          ) : null
         }
       />
     </AppLayout>
