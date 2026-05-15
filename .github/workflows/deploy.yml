@@ -1,23 +1,16 @@
-name: CI Backend
+name: Deploy Backend (Fly.io)
 
+# Pipeline: Push auf main -> Build+Tests -> nur bei gruen -> Fly-Deploy.
+# Frontend deployt separat & automatisch ueber Vercel (Push auf GitHub-main).
 on:
   push:
-    # main wird von deploy.yml getestet+deployt -> hier nur develop, sonst laufen
-    # die Tests bei jedem main-Push doppelt. PRs gegen main bleiben abgedeckt.
-    branches: [develop]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/ci-backend.yml'
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/ci-backend.yml'
-  workflow_dispatch:
+    branches: [main]
+  workflow_dispatch: {}
 
+# Verhindert ueberlappende Deploys; ein laufender Deploy wird NICHT abgebrochen.
 concurrency:
-  group: ci-backend-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-fly
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -54,11 +47,6 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Verify Maven & Java
-        run: |
-          mvn --version
-          java -version
-
       - name: Build & run tests
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/bugtracker
@@ -74,3 +62,22 @@ jobs:
           path: backend/target/surefire-reports/
           if-no-files-found: ignore
           retention-days: 7
+
+  deploy:
+    name: Deploy to Fly.io
+    needs: test               # laeuft NUR wenn der test-Job gruen ist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Baut das Image auf Flys Remote-Builder (kein Docker im Runner noetig),
+      # liest fly.toml aus dem Repo-Root, rollt mit der dort definierten Strategie aus.
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
