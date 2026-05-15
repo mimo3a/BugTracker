@@ -479,7 +479,9 @@ CREATE TABLE users (
 
 ---
 
-### T021b · @PreAuthorize-Annotationen auf Controllern *(neu — FA-15)*
+### ✅ T021b · @PreAuthorize-Annotationen auf Controllern *(neu — FA-15)*
+**Status (15.05.2026):** Implementiert (Maksim, Branch `feature/T038a-T061-T021b-tags-comments-rbac`). Infrastruktur (`@EnableMethodSecurity` + `SessionAuthFilter` mappt Rolle → `ROLE_*`) war bereits vorhanden — nur Annotationen ergänzt: BugController-Mutationen → `hasAnyRole('DEVELOPER','ADMIN')`, UserController.updateUser + TagController-Schreib-Ops → `hasRole('ADMIN')`; Lese-/Bug-Anlegen-/Kommentar-Endpoints bewusst offen (TESTER laut Matrix). DoD durch `RoleAccessIntegrationTest` (voller Context, echter Login) abgesichert: TESTER→Tag-POST = 403, TESTER→Bug-PUT = 403. Detail: `.erklaerungen/T021b-method-security.md`.
+
 **Was:** Methoden-Level-Security mit `@EnableMethodSecurity`.
 
 **Beispiel:**
@@ -839,7 +841,9 @@ public record CreateBugRequest(
 
 ---
 
-### T038a · Tag-CRUD Backend *(neu — FA-16)*
+### ✅ T038a · Tag-CRUD Backend *(neu — FA-16)*
+**Status (15.05.2026):** Implementiert (Maksim, Branch `feature/T038a-T061-T021b-tags-comments-rbac`). `Tag`-Record + `TagDao` + `TagService` + `TagController` + `TagRequest`-DTO. Endpoints: `GET /api/tags` (alle eingeloggt), `POST` / `PUT`+`PATCH` / `DELETE` (ADMIN). **Abweichung zur Spec dokumentiert:** Update akzeptiert PUT **und** PATCH (Frontend nutzt PATCH, Spec sagt PUT — beide auf einen Handler gemappt). Delete entkoppelt `bug_tags` und lässt Bugs unangetastet (nicht „tag_id NULL" — es gibt keine solche Spalte). Tests: `TagDaoTest`, `TagControllerTest`, `RoleAccessIntegrationTest`. Detail: `.erklaerungen/T038a-tag-crud.md`.
+
 **Was:** Vollständige CRUD-API für Tags (nur ADMIN).
 
 **Endpoints:**
@@ -1173,8 +1177,10 @@ CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 
 ---
 
-### T061 · (KANN) Kommentare-Backend
-**Datei:** `V4__comments.sql` · Endpoints: GET/POST `/api/bugs/{id}/comments`
+### ✅ T061 · (KANN) Kommentare-Backend
+**Status (15.05.2026):** Implementiert (Maksim, Branch `feature/T038a-T061-T021b-tags-comments-rbac`). **Migration ist `V5__comments.sql`, nicht V4** — V4 ist bereits `seed_demo_users` (Flyway-Versionen sind nach Deployment unveränderlich). `Comment`-Record (Shape exakt am Frontend-Type), `CommentDao` (JOIN users für `userName`), `CommentService` (Bug-Existenz-Check), `CommentController` GET/POST `/api/bugs/{id}/comments`. Kein `@PreAuthorize` (FA-11 ist TESTER-Recht). Tests: `CommentDaoTest`, `CommentControllerTest`, `RoleAccessIntegrationTest`. Detail: `.erklaerungen/T061-comments-backend.md`.
+
+**Datei:** ~~`V4__comments.sql`~~ → `V5__comments.sql` · Endpoints: GET/POST `/api/bugs/{id}/comments`
 
 ---
 
