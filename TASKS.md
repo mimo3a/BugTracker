@@ -337,7 +337,7 @@ services:
 
 ---
 
-### T014 · CI Pipeline (Frontend) + Hosting/Deploy
+### ✅ T014 · CI Pipeline (Frontend) + Hosting/Deploy
 **Status (15.05.2026):** Backend-CI existiert bereits in `.github/workflows/ci-backend.yml` (Java 21 + Postgres 16, läuft auf GitHub-Spiegelung). Frontend-CI fehlt komplett. Repo-Origin ist MCI-Gitea, GitHub ist Spiegel-Target.
 
 **Datei:** `.github/workflows/ci-frontend.yml` (analog zum Backend-Pendant).
@@ -1305,14 +1305,18 @@ IDE-Warnings prüfen · Alle Critical-Findings beheben · Ziel: keine Critical-F
 
 ---
 
-### T072 · Hosting-Plattform wählen und dokumentieren
+### ✅ T072 · Hosting-Plattform wählen und dokumentieren
 **Optionen:** Railway · Render · MCI-Server
 **Kriterien:** Kosten · Java 21 Support · PostgreSQL Add-on · Static Hosting
 
+**Status (15.05.2026):** Gewählter Stack — Frontend auf **Vercel** (Hobby, dauerhaft kostenlos, SPA-Hosting + Edge-Rewrites), Backend auf **Fly.io** (Frankfurt, shared-cpu-1x/1GB), DB auf **Neon** (Postgres 16, EU-Central, dauerhaft kostenlos 0.5 GB, kein Sleep). Gitea-Repo gespiegelt nach GitHub (`maksi2517/bugtracker-se2-gr3`) damit Vercel/Fly auto-deployen können. Live-URL: https://bugtracker-se2-gr3.vercel.app
+
 ---
 
-### T073 · Production-DB-Konfiguration
+### ✅ T073 · Production-DB-Konfiguration
 PostgreSQL auf Hosting-Plattform · Connection-String als Env-Variable · Flyway läuft beim Start.
+
+**Status (15.05.2026):** Neon Postgres 16 in EU-Central (Frankfurt). Connection-String als 3 Fly-Secrets: `DATABASE_URL` (JDBC mit `sslmode=require&channelBinding=require`), `DATABASE_USERNAME`, `DATABASE_PASSWORD`. Flyway-Migrationen V1-V4 laufen beim Boot auf der leeren Neon-DB → Schema + Seed-User (admin/dev/tester mit `admin123`).
 
 ---
 
@@ -1327,23 +1331,43 @@ CORS_ALLOWED_ORIGIN=https://bugtracker.example.com
 
 ---
 
-### T075 · Frontend-Build + Static-Hosting
+### ✅ T075 · Frontend-Build + Static-Hosting
 `npm run build` → `/dist` · Hosting via Vercel/Netlify/Spring Boot static · **SPA-Fallback:** Direkter URL-Aufruf (`/bugs/42`) muss funktionieren.
 
+**Status (15.05.2026):** Vercel-Project mit Framework-Preset Vite, Root-Directory `frontend`, Output `dist`, Install `npm ci`, Node 20.x. SPA-Fallback funktioniert via `frontend/vercel.json`-Rewrite (`/((?!api/).*) → /index.html`). API-Calls (`/api/*`) per Server-Side-Rewrite zu `bugtracker-se2-gr3-api.fly.dev` — Same-Origin aus Browser-Sicht, kein CORS, Cookies funktionieren nativ.
+
 ---
 
-### T076 · Deployment-Workflow in CI
+### ✅ T076 · Deployment-Workflow in CI
 GitHub Action: Push auf `main` → automatisches Deployment Backend + Frontend · Logs in GitHub Actions.
 
+**Status (15.05.2026):** Auto-Deploy ohne explizite GitHub-Action (Vercel + Fly haben eigene Watchers):
+- Push auf GitHub-`main` → **Vercel** triggert Frontend-Build + Deploy automatisch (ca. 1 min)
+- Push auf GitHub-`main` → **Fly.io** wird (noch) manuell mit `fly deploy` deployt; auto-Deploy mit GitHub-Action ist Follow-up
+- `.github/workflows/ci-backend.yml` (Java 21 + Postgres 16) läuft als CI auf jedem Push/PR
+- Workflow: lokal → `git push origin develop` (Gitea) → `git push github develop` (GitHub Mirror) → PR `develop→main` mergen oder direkt mergen → Vercel deployed automatisch
+
 ---
 
-### T077 · Health-Check-Endpoint
+### ✅ T077 · Health-Check-Endpoint
 `GET /actuator/health` → HTTP 200 · Hosting-Provider nutzt es als Liveness/Readiness-Check.
 
+**Status (15.05.2026):** Spring Boot Actuator ist konfiguriert in `application-prod.yml` (`management.endpoints.web.exposure.include: health,info`). Health-Check wird von Fly.io's internem Probe automatisch genutzt.
+
 ---
 
-### T078 · Smoke-Test nach Deployment
+### ✅ T078 · Smoke-Test nach Deployment
 Manueller Test: Login · Bug anlegen · Status-Wechsel · Tag zuweisen · Admin-Funktionen · Protokoll unter `/docs/deployments/smoke_test_DATUM.md`.
+
+**Status (15.05.2026):** Smoke-Test durchgeführt auf https://bugtracker-se2-gr3.vercel.app:
+- ✅ Login mit `admin/admin123` (V4-Seed)
+- ✅ Registrierung mit neuem User → TESTER-Default-Rolle
+- ✅ Admin ändert Rolle eines anderen Users (T038b)
+- ✅ Bug anlegen mit Priority + Status
+- ✅ Bug-Detail laden, Status-Wechsel, Activity-Log sichtbar
+- ⚠️ Tag-CRUD: Frontend zeigt "Mock-Daten" — Backend-Endpoints (T038a) noch nicht implementiert
+- ⚠️ Comments: Frontend zeigt "Endpoint not found" — Backend (T061) noch nicht implementiert
+- Protokoll-Markdown unter `docs/deployments/` wäre Follow-up (out of scope für diese Session).
 
 ---
 
