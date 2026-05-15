@@ -61,8 +61,6 @@ public class ActivityDao {
     }
 
     public List<Activity> findByBugId(long bugId) {
-        // Nutzt den Index idx_activities_bug_created aus T056 (composite über
-        // bug_id, created_at DESC) — kein extra Sort-Step nötig.
         return jdbc.query(
                 SELECT_WITH_USER + " WHERE a.bug_id = :bugId ORDER BY a.created_at DESC, a.id DESC",
                 new MapSqlParameterSource("bugId", bugId),

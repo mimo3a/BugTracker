@@ -53,11 +53,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Not found"));
     }
 
-    // ResponseStatusException explizit BEFORE der Exception-Catch-All — sonst
-    // würde der generische Handler 4xx/5xx-Codes aus dem Service-Layer zu 500
-    // überschreiben. Spring's eingebauter ResponseStatusExceptionResolver
-    // greift NICHT, sobald ein @RestControllerAdvice mit Exception.class
-    // registriert ist.
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
         String reason = ex.getReason();

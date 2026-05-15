@@ -56,7 +56,7 @@ class ActivityDaoTest {
                     field VARCHAR(50),
                     old_value TEXT,
                     new_value TEXT,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """);
 
@@ -102,7 +102,6 @@ class ActivityDaoTest {
         List<Activity> activities = activityDao.findByBugId(42L);
 
         assertThat(activities).hasSize(3);
-        // Created in order 1, 2, 3 — Sortierung DESC: 3, 2, 1
         assertThat(activities.get(0).field()).isEqualTo("priority");
         assertThat(activities.get(1).field()).isEqualTo("status");
         assertThat(activities.get(2).action()).isEqualTo("CREATED");

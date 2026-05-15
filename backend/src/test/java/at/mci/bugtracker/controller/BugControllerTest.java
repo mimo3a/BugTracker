@@ -1,10 +1,10 @@
 package at.mci.bugtracker.controller;
 
+import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
 import at.mci.bugtracker.model.BugStatus;
-import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.service.BugPage;
 import at.mci.bugtracker.service.BugService;
 import org.junit.jupiter.api.Test;
@@ -94,12 +94,12 @@ class BugControllerTest {
     }
 
     @Test
-    void listBugsClampsNegativePageAndDefaultsEmptyFilters() throws Exception {
+    void listBugsAcceptsSnakeCaseAssigneeAlias() throws Exception {
         when(bugService.listBugs(any(BugFilter.class), eq(0)))
                 .thenReturn(new BugPage(List.of(), 0, 0, 50));
 
         mockMvc.perform(get("/api/bugs")
-                        .param("assigneeId", "3")
+                        .param("assignee_id", "3")
                         .param("page", "-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(0))

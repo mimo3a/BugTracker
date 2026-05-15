@@ -21,8 +21,6 @@ public class ActivityService {
     }
 
     public List<Activity> getBugActivities(long bugId) {
-        // Existenz-Check vorab — sonst würde der Endpoint bei nicht-existentem
-        // Bug einfach eine leere Liste liefern, was 404-nicht-unterscheidbar wäre.
         if (bugDao.findById(bugId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden");
         }
