@@ -21,12 +21,12 @@ concurrency:
 
 jobs:
   test:
-    name: Build & Test (Java 21 · PostgreSQL 16)
+    name: Build & Test (Java 21 · PostgreSQL 17)
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_DB: bugtracker
           POSTGRES_USER: bugtracker
