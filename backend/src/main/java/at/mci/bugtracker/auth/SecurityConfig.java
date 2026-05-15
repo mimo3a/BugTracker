@@ -68,6 +68,9 @@ public class SecurityConfig {
                                 // Public auth API endpoints
                                 "/api/auth/login",
                                 "/api/auth/register",
+                                // Health/Info für Fly-Health-Check (unauth → nur {"status":"UP"})
+                                "/actuator/health",
+                                "/actuator/info",
                                 // Public HTML routes
                                 "/",
                                 "/login",
