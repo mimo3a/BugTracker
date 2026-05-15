@@ -8,7 +8,7 @@ export function filterBugs(bugs: Bug[], filters: BugFilters): Bug[] {
   return bugs.filter((b) => {
     if (filters.status.length > 0 && !filters.status.includes(b.status)) return false
     if (filters.priority && b.priority !== filters.priority) return false
-    if (filters.tagId !== null && b.tagId !== filters.tagId) return false
+    if (filters.tagId !== null && !b.tagIds.includes(filters.tagId)) return false
     if (filters.assigneeId !== null && b.assigneeId !== filters.assigneeId) return false
     if (filters.search.trim()) {
       const q = filters.search.trim().toLowerCase()

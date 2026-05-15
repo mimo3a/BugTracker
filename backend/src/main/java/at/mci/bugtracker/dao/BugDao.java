@@ -17,6 +17,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -169,10 +170,15 @@ public class BugDao {
     }
 
     private boolean setArchived(Long id, boolean archived) {
+        // Status wird in beide Richtungen umgesetzt:
+        //   archive  → 'ARCHIVIERT' (terminal-Marker im Workflow)
+        //   restore  → 'NEU' (Workflow-Reset, weil ARCHIVIERT in der State-Machine
+        //                     keinen Outgoing-Transition hat — siehe T036).
+        // Ohne den Reset bliebe restore inkonsistent: archived=false aber status='ARCHIVIERT'.
         String sql = """
                 UPDATE bugs
                    SET archived = :archived,
-                       status = CASE WHEN :archived = TRUE THEN 'ARCHIVIERT' ELSE status END,
+                       status = CASE WHEN :archived = TRUE THEN 'ARCHIVIERT' ELSE 'NEU' END,
                        updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id
                 """;
@@ -266,9 +272,10 @@ public class BugDao {
             conditions.add("b.assignee_id = :assigneeId");
             parameters.addValue("assigneeId", filter.assigneeId());
         }
-        if (filter.tagId() != null) {
-            conditions.add("EXISTS (SELECT 1 FROM bug_tags bt WHERE bt.bug_id = b.id AND bt.tag_id = :tagId)");
-            parameters.addValue("tagId", filter.tagId());
+        if (!filter.tagIds().isEmpty()) {
+            // OR-Semantik: Bug matched, wenn er MINDESTENS EINEN der Filter-Tags hat.
+            conditions.add("EXISTS (SELECT 1 FROM bug_tags bt WHERE bt.bug_id = b.id AND bt.tag_id IN (:tagIds))");
+            parameters.addValue("tagIds", filter.tagIds());
         }
         if (filter.search() != null && !filter.search().isBlank()) {
             conditions.add("LOWER(b.title) LIKE :search");
@@ -300,9 +307,18 @@ public class BugDao {
                     List.of(),
                     List.of(),
                     rs.getBoolean("archived"),
-                    rs.getObject("created_at", LocalDateTime.class),
-                    rs.getObject("updated_at", LocalDateTime.class)
+                    toLocalDateTime(rs, "created_at"),
+                    toLocalDateTime(rs, "updated_at")
             );
+        }
+
+        // Postgres-Spalte ist TIMESTAMP WITH TIME ZONE. Der JDBC-Treiber wirft
+        // PSQLException beim direkten Mappen auf LocalDateTime, also erst als
+        // OffsetDateTime lesen und dann konvertieren (H2 ist toleranter, deshalb
+        // fiel das im BugDaoTest mit Embedded-H2 nicht auf).
+        private static LocalDateTime toLocalDateTime(ResultSet rs, String column) throws SQLException {
+            OffsetDateTime odt = rs.getObject(column, OffsetDateTime.class);
+            return odt == null ? null : odt.toLocalDateTime();
         }
 
         private static Long nullableLong(ResultSet rs, String column) throws SQLException {

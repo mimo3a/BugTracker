@@ -316,8 +316,10 @@ services:
 
 ---
 
-### T012 · Dockerfile für Backend
+### ✅ T012 · Dockerfile für Backend
 **Was:** Multi-Stage Dockerfile.
+
+**Status (09.05.2026, PR #8):** Implementiert + gemerged.
 
 **Anforderungen:** Image-Größe < 300 MB
 
@@ -672,18 +674,34 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
-**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagId`, `search`, `page`, `archived`
+### ✅ T032 · GET /api/bugs Endpoint *(FA-02 + FA-09)*
+**Query-Parameter:** `status` (multi), `priority`, `assigneeId`, `tagIds` (multi, OR-Semantik), `search`, `page`, `archived`
 
 **Response:**
 ```json
 { "bugs": [...], "total": 73, "page": 0, "pageSize": 50 }
 ```
 
+**Status (12.05.2026, PR #15):** Implementiert (Oleksandr) + Review-Adapt (Maksim).
+- Sortierung `created_at DESC, id DESC` als Default
+- `pageSize` fest bei 50 (nicht client-konfigurierbar — MVP-Entscheidung)
+- snake_case-Alias `assignee_id` entfernt — durchgängig camelCase
+- `tagId` (single) → `tagIds` (List<Long>) mit OR-Semantik für Multi-Tag-Filter
+- `BugPage` als eigene Datei `service/BugPage.java` (statt nested Record)
+- Alle authentifizierten User dürfen lesen — Rollen-Restriktion nur beim Editieren (T034)
+- 40/40 Tests grün (BugControllerTest + erweiterter BugDaoTest mit Multi-Tag-OR-Test)
+
 ---
 
-### T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
+### ✅ T033 · GET /api/bugs/{id} Endpoint *(FA-03)*
 **Response:** Alle Bug-Felder + reporterName + assigneeName + tagName
+
+**Status (13.05.2026, PR #21):** Implementiert (Patrick) — Trivial-Endpoint (+11 LOC), kein Adapt nötig.
+- Auth-Pflicht greift via globaler `SecurityConfig.anyRequest().authenticated()` — kein expliziter `CurrentSession.require()` nötig
+- `BugDao.findById` enriched bereits Reporter/Assignee/Tags via JOIN
+- Archivierte Bugs lesbar (FA-03 ist Read-Only, konsistent mit T035-Semantik)
+- 404 mit `"Bug nicht gefunden"` — gleiche Fehlersprache wie T034
+- Unit-Tests folgen mit T065
 
 ---
 
@@ -702,24 +720,38 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T035 · Soft-Delete + Reaktivierung *(FA-05)*
-- `DELETE /api/bugs/{id}`: setzt `archived = true`
-- `PATCH /api/bugs/{id}/restore`: setzt `archived = false`
+### ✅ T035 · Soft-Delete + Reaktivierung *(FA-05)*
+- `PATCH /api/bugs/{id}/archive`: setzt `archived = true` + `status = ARCHIVIERT`
+- `PATCH /api/bugs/{id}/restore`: setzt `archived = false` + `status = NEU` (Workflow-Reset, weil `ARCHIVIERT` terminal ist)
+
+**Status (13.05.2026, PR #22):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- HTTP-Method-Drift gegenüber alter Spec-Variante (`DELETE /api/bugs/{id}`): Symmetrische PATCH-Paar-Lösung gewählt (konsistent mit `/status`, `/priority`).
+- Restore-Status-Quirk gefixt: `BugDao.setArchived` setzt beim Restore jetzt `status = NEU` (vorher blieb `ARCHIVIERT`, was archived=false + status=ARCHIVIERT als inkonsistenten Zustand hinterließ).
+- Rolle: DEVELOPER + ADMIN → 403 für TESTER
+- 409 wenn schon im Zielzustand (idempotente Fehlersemantik)
+- Activity-Logging via `field=archived` + alte/neue Werte (`recordChange`-Pattern)
+- OpenAPI auf PATCH /archive + /restore mit 409 synchronisiert
+- Unit-Tests folgen mit T065
 
 ---
 
-### T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
+### ✅ T036 · PATCH /api/bugs/{id}/status Endpoint *(FA-06)*
 **State-Machine (erlaubte Übergänge):**
-- `NEU → IN_BEARBEITUNG, ABGELEHNT`
-- `IN_BEARBEITUNG → IM_REVIEW, ABGELEHNT`
-- `IM_REVIEW → ERLEDIGT, IN_BEARBEITUNG, ABGELEHNT`
+- `NEU → IN_BEARBEITUNG, ARCHIVIERT`
+- `IN_BEARBEITUNG → IM_REVIEW, ARCHIVIERT`
+- `IM_REVIEW → ERLEDIGT, ABGELEHNT, ARCHIVIERT`
 - `ERLEDIGT → ARCHIVIERT`
 - `ABGELEHNT → ARCHIVIERT`
-- Alle Status `→ ARCHIVIERT`
+- `ARCHIVIERT → (terminal, Restore via T035)`
 
-**Verbotener Übergang:** HTTP 400 + `{ "error": "Ungültiger Statuswechsel von ERLEDIGT zu NEU" }`
+**Verbotener Übergang:** HTTP 409 (Conflict) + `{ "error": "Status-Wechsel nicht erlaubt: ERLEDIGT → NEU" }`
 
-**Implementation:** Eigene Service-Klasse `StatusTransitionValidator` (siehe T065 Unit-Test).
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `service/BugStatusStateMachine.java` als @Component
+- DEVELOPER + ADMIN dürfen, TESTER → 403
+- Activity-Tracking automatisch (T057)
+- 6 BugStatusStateMachineTest + Live-Test gegen Postgres
+- Status-Code-Änderung vs. Spec: 409 statt 400 (semantisch korrekter — Request war wohlgeformt, Server-State erlaubt's nicht)
 
 ---
 
@@ -743,10 +775,19 @@ INSERT INTO tags (name, color) VALUES
 
 ---
 
-### T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
+### ✅ T037 · PATCH /api/bugs/{id}/assignee Endpoint *(FA-08)*
 **Request:** `{ "assigneeId": 3 }` oder `{ "assigneeId": null }` (entfernt Bearbeiter)
 
 **Validierung:** User muss existieren (HTTP 404 sonst)
+
+**Status (13.05.2026, PR #23):** Implementiert (Patrick) + Review-Adapt (Maksim).
+- Folgt sauber dem `updateStatus`-Muster: `requireEditable` (404/409), `requireActor` (401), `isPrivileged` (403)
+- DTO mit `Long` (boxed) — erlaubt `null` als legitime Eingabe (= Bearbeiter entfernen, statt 0 durch Jackson-Default)
+- Rolle: DEVELOPER + ADMIN dürfen Bearbeiter setzen, TESTER → 403
+- 404 wenn `assigneeId` auf nicht-existierenden User zeigt (Spec-konform)
+- Activity-Logging via existierender `recordChange`-Konvention (`field=assigneeId`, alte/neue ID als String)
+- **Adapt:** Branch zweigte von `fb0ebc8` ab — auf aktuellen `develop` rebased, 2 Konflikte in `BugController` + `BugService` manuell aufgelöst (T035 + T037 wollten beide direkt hinter `updateStatus` einfügen; Reihenfolge jetzt: `status → assignee → archive → restore`)
+- **Tests nachgeliefert:** `BugServiceAssigneeTest` mit 7 Mockito-Unit-Tests (TESTER→403, Happy-Path mit Activity, null=Unassign, User-not-found→404, archived→409, Bug-not-found→404, No-Op skip)
 
 ---
 
@@ -861,17 +902,30 @@ npx tailwindcss init -p
 
 ---
 
-### T043 · Auth-Context + AuthProvider
+### ✅ T043 · Auth-Context + AuthProvider
 **Was:** React Context mit `user`, `loading`, `login()`, `logout()`.
 
 **Verhalten:** Beim App-Start `GET /api/auth/me` → User bleibt nach Page-Reload eingeloggt.
 
 **Implementiert:** US-12 AC5
 
+**Status (12.05.2026, PR #16):** Implementiert (Maksim).
+- `context/AuthContext.tsx` mit `AuthProvider` + `useAuth`-Hook
+- Auto-Restore via `GET /api/auth/me` beim App-Mount
+- `components/ProtectedRoute.tsx` als Route-Guard (redirect → /login wenn unauth)
+
 ---
 
-### T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
+### ✅ T044 · Login-Seite + Auth-Flow *(US-12 AC1+AC2)*
 **Felder:** Username, Passwort · Bei Erfolg Redirect zu `/bugs` · Bei Fehler Meldung + Passwort-Feld leeren
+
+**Status (12.05.2026, PR #16):** Implementiert (Maksim).
+- `pages/LoginPage.tsx` mit username/password Form
+- 401 → "Falscher Benutzername oder Passwort" (deutsch)
+- BugListPage-Header: User-Anzeige (`username · role`) + Logout-Button
+- `ApiError`-Klasse für status-spezifische Fehler-Behandlung im UI
+- Mit-gefixt: UserDao-Bug in `findByUsername`/`findById`/`findByEmail`/`findAll` (SELECT-Spalten passten nicht zum ResultSet-Mapping, Login warf 500)
+- Mit-gefixt: Frontend-Bug-Type auf M:N-Tags (`tagIds`/`tagNames` Arrays) aligned mit Backend nach T029
 
 ---
 
@@ -910,8 +964,15 @@ npx tailwindcss init -p
 
 ---
 
-### T048 · Bug-Erstellen-Formular *(US-01)*
+### ✅ T048 · Bug-Erstellen-Formular *(US-01)*
 **Felder:** Titel (Pflicht), Beschreibung (Pflicht), Priorität (optional), Tag (optional)
+
+**Status (12.05.2026, PR #17):** Implementiert (Maksim).
+- `pages/BugCreatePage.tsx` — Form mit Title (max 255 + Live-Counter), Description, Priority-Dropdown, Tags als Toggle-Buttons
+- `lib/api.ts`: `api.createBug()` + `CreateBugInput`-Type
+- `lib/seedTags.ts`: 4 Seed-Tags aus V2-Migration hardcoded (TODO → T038a für `GET /api/tags`)
+- Route `/bugs/new` mit `ProtectedRoute`, „+ new"-Button im BugListPage-Header
+- Mit-gefixt: BugDao-Bug in BugRowMapper (`TIMESTAMP WITH TIME ZONE` → `OffsetDateTime` statt direkt `LocalDateTime`, sonst PSQLException sobald Tabelle nicht leer)
 
 ---
 
@@ -1030,15 +1091,28 @@ CREATE INDEX idx_activities_bug_created ON activities(bug_id, created_at DESC);
 
 ---
 
-### T057 · ActivityDao + Activity-Tracking in BugService
+### ✅ T057 · ActivityDao + Activity-Tracking in BugService
 **Was:** Bei jedem Bug-Update automatisch Activity-Einträge erzeugen.
 
-**Erfasste Änderungen:** Status, Priorität, Bearbeiter, Titel, Beschreibung, Tag
+**Erfasste Änderungen:** Status, Titel, Beschreibung, Tag (Priorität + Bearbeiter folgen mit T036b + T037)
+
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `model/Activity.java` Record mit polymorphem action/field/old/new Schema
+- `dao/ActivityDao.java`: insert + findByBugId, nutzt Index aus T056
+- `service/BugService.java`: createBug logt CREATED, updateBug logt UPDATED pro geändertem Feld, updateStatus logt UPDATED-status
+- `@Transactional` auf alle Write-Methoden — atomar Bug + Activity
+- 5 ActivityDaoTest + Live-Test gegen Postgres
 
 ---
 
-### T058 · GET /api/bugs/{id}/activities Endpoint
+### ✅ T058 · GET /api/bugs/{id}/activities Endpoint
 **Was:** Chronologische Liste (neueste oben).
+
+**Status (12.05.2026, PR #18):** Implementiert (Maksim, ersetzt Oleksandrs verworfenen Branch).
+- `service/ActivityService.java` mit Existenz-Check auf Bug (404 statt leere Liste)
+- `controller/ActivityController.java` mit GET-Endpoint
+- `controller/dto/ActivityResponse.java` als API-Form
+- Auth: jeder authentifizierte User darf lesen
 
 ---
 

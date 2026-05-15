@@ -17,7 +17,7 @@ public class UserDao {
 
     public User findById(long id) {
         return db.queryOne(
-                "SELECT id, username, email, password_hash, role, created_at FROM users WHERE id = ?",
+                "SELECT id, username, email, password_hash, role, active, created_at FROM users WHERE id = ?",
                 rs -> new User(
                         rs.getLong("id"),
                         rs.getString("username"),
@@ -33,7 +33,7 @@ public class UserDao {
 
     public User findByUsername(String userName) {
         return db.queryOne(
-                "SELECT id, username, email, password_hash, role, created_at FROM users WHERE username = ?",
+                "SELECT id, username, email, password_hash, role, active, created_at FROM users WHERE username = ?",
                 rs -> new User(
                         rs.getLong("id"),
                         rs.getString("username"),
@@ -49,7 +49,7 @@ public class UserDao {
 
     public User findByEmail(String email) {
         return db.queryOne(
-                "SELECT id, username, email, password_hash, role, created_at FROM users WHERE email = ?",
+                "SELECT id, username, email, password_hash, role, active, created_at FROM users WHERE email = ?",
                 rs -> new User(
                         rs.getLong("id"),
                         rs.getString("username"),
@@ -90,7 +90,7 @@ public class UserDao {
 
     public List<User> findAll() {
         return db.query(
-                "SELECT id, username, email, role, active, created_at FROM users ORDER BY username ASC",
+                "SELECT id, username, email, password_hash, role, active, created_at FROM users ORDER BY username ASC",
                 rs -> new User(
                         rs.getLong("id"),
                         rs.getString("username"),

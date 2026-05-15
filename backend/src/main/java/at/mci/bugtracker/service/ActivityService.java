@@ -11,6 +11,7 @@ import java.util.List;
 
 @Service
 public class ActivityService {
+
     private final ActivityDao activityDao;
     private final BugDao bugDao;
 
@@ -19,7 +20,7 @@ public class ActivityService {
         this.bugDao = bugDao;
     }
 
-    public List<Activity> getBugActivities(Long bugId) {
+    public List<Activity> getBugActivities(long bugId) {
         if (bugDao.findById(bugId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden");
         }

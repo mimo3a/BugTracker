@@ -3,6 +3,7 @@ package at.mci.bugtracker.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -17,11 +18,14 @@ import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.controller.dto.BugListResponse;
 import at.mci.bugtracker.controller.dto.BugResponse;
 import at.mci.bugtracker.controller.dto.CreateBugRequest;
+import at.mci.bugtracker.controller.dto.UpdateAssigneeRequest;
 import at.mci.bugtracker.controller.dto.UpdateBugRequest;
+import at.mci.bugtracker.controller.dto.UpdateStatusRequest;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
 import at.mci.bugtracker.model.BugStatus;
+import at.mci.bugtracker.service.BugPage;
 import at.mci.bugtracker.service.BugService;
 import jakarta.validation.Valid;
 
@@ -43,7 +47,7 @@ public class BugController {
             @RequestParam(name = "priority", required = false) BugPriority priority,
             @RequestParam(name = "assigneeId", required = false) Long assigneeId,
             @RequestParam(name = "assignee_id", required = false) Long assigneeIdSnakeCase,
-            @RequestParam(name = "tagId", required = false) Long tagId,
+            @RequestParam(name = "tagIds", required = false) List<Long> tagIds,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "archived", defaultValue = "false") boolean archived,
             @RequestParam(name = "page", defaultValue = "0") int page
@@ -53,12 +57,12 @@ public class BugController {
                 statuses,
                 priority,
                 effectiveAssigneeId,
-                tagId,
+                tagIds,
                 search,
                 archived,
                 BugFilter.DEFAULT_PAGE_SIZE
         );
-        BugService.BugPage bugPage = bugService.listBugs(filter, Math.max(page, 0));
+        BugPage bugPage = bugService.listBugs(filter, Math.max(page, 0));
 
         BugListResponse response = new BugListResponse(
                 bugPage.bugs().stream().map(this::toResponse).toList(),
@@ -68,6 +72,12 @@ public class BugController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    public BugResponse getBugById(@PathVariable Long id) {
+        Bug bug = bugService.getBugById(id);
+        return toResponse(bug);
     }
 
     @PostMapping
@@ -85,6 +95,40 @@ public class BugController {
     ) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.updateBug(id, request, session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/status")
+    public BugResponse updateStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateStatusRequest request
+    ) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.updateStatus(id, request.status(), session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/assignee")
+    public BugResponse updateAssignee(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateAssigneeRequest request
+    ) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.updateAssignee(id, request.assigneeId(), session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/archive")
+    public BugResponse archiveBug(@PathVariable Long id) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.archiveBug(id, session.userId());
+        return toResponse(bug);
+    }
+
+    @PatchMapping("/{id}/restore")
+    public BugResponse restoreBug(@PathVariable Long id) {
+        SessionStore.Session session = CurrentSession.require();
+        Bug bug = bugService.restoreBug(id, session.userId());
         return toResponse(bug);
     }
 

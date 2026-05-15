@@ -16,20 +16,38 @@ public final class Requests {
             String username,
 
             @NotBlank(message = "E-Mail darf nicht leer sein")
-            @Email(message = "Ungültiges E-Mail-Format")
+            @Size(max = 255, message = "E-Mail darf maximal 255 Zeichen lang sein")
+            @Email(message = "Ungueltiges E-Mail-Format")
             String email,
 
             @NotBlank(message = "Passwort darf nicht leer sein")
-            @Size(min = 8, message = "Passwort muss mindestens 8 Zeichen lang sein")
+            @Size(min = 8, max = 255, message = "Passwort muss zwischen 8 und 255 Zeichen lang sein")
             String password,
 
-            @NotBlank(message = "Passwort-Bestätigung darf nicht leer sein")
+            @NotBlank(message = "Passwort-Bestaetigung darf nicht leer sein")
+            @Size(min = 8, max = 255, message = "Passwort-Bestaetigung muss zwischen 8 und 255 Zeichen lang sein")
             String passwordConfirm
     ) {}
 
-    public record Login(String username, String password) {}
+    public record Login(
+            @NotBlank(message = "Username darf nicht leer sein")
+            @Size(max = 50, message = "Username darf maximal 50 Zeichen lang sein")
+            String username,
 
-    public record ChangePassword(String currentPassword, String newPassword) {}
+            @NotBlank(message = "Passwort darf nicht leer sein")
+            @Size(max = 255, message = "Passwort darf maximal 255 Zeichen lang sein")
+            String password
+    ) {}
+
+    public record ChangePassword(
+            @NotBlank(message = "Aktuelles Passwort darf nicht leer sein")
+            @Size(max = 255, message = "Aktuelles Passwort darf maximal 255 Zeichen lang sein")
+            String currentPassword,
+
+            @NotBlank(message = "Neues Passwort darf nicht leer sein")
+            @Size(min = 6, max = 255, message = "Neues Passwort muss zwischen 6 und 255 Zeichen lang sein")
+            String newPassword
+    ) {}
 
     public record CreateProject(String name, String description) {}
 
@@ -70,4 +88,3 @@ public final class Requests {
 
     public record SetBugTags(List<Integer> tagIds) {}
 }
-

@@ -1,15 +1,15 @@
 package at.mci.bugtracker.model;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record Activity(
         Long id,
-        Long bugId,
-        Long userId,
+        long bugId,
+        long userId,
         String userName,
         String action,
         String field,
         String oldValue,
         String newValue,
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
 ) {}

@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/bugs/{bugId}/activities")
 public class ActivityController {
+
     private final ActivityService activityService;
 
     public ActivityController(ActivityService activityService) {
@@ -21,14 +22,14 @@ public class ActivityController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ActivityResponse>> getBugActivities(@PathVariable Long bugId) {
+    public ResponseEntity<List<ActivityResponse>> getBugActivities(@PathVariable long bugId) {
         List<ActivityResponse> response = activityService.getBugActivities(bugId).stream()
-                .map(this::toResponse)
+                .map(ActivityController::toResponse)
                 .toList();
         return ResponseEntity.ok(response);
     }
 
-    private ActivityResponse toResponse(Activity activity) {
+    private static ActivityResponse toResponse(Activity activity) {
         return new ActivityResponse(
                 activity.id(),
                 activity.bugId(),

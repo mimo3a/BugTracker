@@ -13,7 +13,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @JdbcTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:bugtracker;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
+        "spring.datasource.url=jdbc:h2:mem:bugtracker_activities;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
         "spring.flyway.enabled=false"
 })
 @Import(ActivityDao.class)
@@ -44,15 +44,7 @@ class ActivityDaoTest {
         jdbc.execute("""
                 CREATE TABLE bugs (
                     id BIGSERIAL PRIMARY KEY,
-                    title VARCHAR(255) NOT NULL,
-                    description TEXT NOT NULL,
-                    status VARCHAR(20) NOT NULL DEFAULT 'NEU',
-                    priority VARCHAR(20) NOT NULL DEFAULT 'MITTEL',
-                    reporter_id BIGINT NOT NULL REFERENCES users(id),
-                    assignee_id BIGINT REFERENCES users(id),
-                    archived BOOLEAN NOT NULL DEFAULT FALSE,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    title VARCHAR(255) NOT NULL
                 )
                 """);
         jdbc.execute("""
@@ -64,59 +56,71 @@ class ActivityDaoTest {
                     field VARCHAR(50),
                     old_value TEXT,
                     new_value TEXT,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """);
 
         jdbc.update("""
-                INSERT INTO users (id, username, email, password_hash, role) VALUES
-                (1, 'tom', 'tom@example.com', 'hash', 'TESTER'),
-                (2, 'marie', 'marie@example.com', 'hash', 'DEVELOPER')
+                INSERT INTO users (id, username, email, password_hash) VALUES
+                (1, 'marie', 'marie@example.com', 'hash'),
+                (2, 'tom', 'tom@example.com', 'hash')
                 """);
-        jdbc.update("""
-                INSERT INTO bugs (id, title, description, reporter_id) VALUES
-                (10, 'Login fails', 'Steps', 1),
-                (11, 'Other bug', 'Steps', 1)
-                """);
+        jdbc.update("INSERT INTO bugs (id, title) VALUES (42, 'Login broken')");
     }
 
     @Test
-    void findByBugIdReturnsNewestActivitiesFirstWithAllFields() {
-        jdbc.update("""
-                INSERT INTO activities (id, bug_id, user_id, action, field, old_value, new_value, created_at) VALUES
-                (1, 10, 1, 'UPDATED', 'title', 'Old', 'New', TIMESTAMP '2026-05-10 10:00:00'),
-                (2, 10, 2, 'UPDATED', 'status', 'NEU', 'IN_BEARBEITUNG', TIMESTAMP '2026-05-10 11:00:00'),
-                (3, 11, 2, 'UPDATED', 'title', 'Other', 'Ignored', TIMESTAMP '2026-05-10 12:00:00')
-                """);
+    void insertReturnsActivityWithGeneratedIdAndUserName() {
+        Activity saved = activityDao.insert(42L, 1L, "UPDATED", "status", "NEU", "IN_BEARBEITUNG");
 
-        List<Activity> activities = activityDao.findByBugId(10L);
-
-        assertThat(activities).hasSize(2);
-        assertThat(activities).extracting(Activity::id).containsExactly(2L, 1L);
-
-        Activity newest = activities.get(0);
-        assertThat(newest.bugId()).isEqualTo(10L);
-        assertThat(newest.userId()).isEqualTo(2L);
-        assertThat(newest.userName()).isEqualTo("marie");
-        assertThat(newest.action()).isEqualTo("UPDATED");
-        assertThat(newest.field()).isEqualTo("status");
-        assertThat(newest.oldValue()).isEqualTo("NEU");
-        assertThat(newest.newValue()).isEqualTo("IN_BEARBEITUNG");
-        assertThat(newest.createdAt()).isNotNull();
+        assertThat(saved.id()).isNotNull();
+        assertThat(saved.bugId()).isEqualTo(42L);
+        assertThat(saved.userId()).isEqualTo(1L);
+        assertThat(saved.userName()).isEqualTo("marie");
+        assertThat(saved.action()).isEqualTo("UPDATED");
+        assertThat(saved.field()).isEqualTo("status");
+        assertThat(saved.oldValue()).isEqualTo("NEU");
+        assertThat(saved.newValue()).isEqualTo("IN_BEARBEITUNG");
+        assertThat(saved.createdAt()).isNotNull();
     }
 
     @Test
-    void insertPersistsActivityForBug() {
-        activityDao.insert(10L, 2L, "UPDATED", "description", "old", "new");
+    void insertAllowsNullFieldAndValues() {
+        Activity saved = activityDao.insert(42L, 1L, "CREATED", null, null, "Login broken");
 
-        List<Activity> activities = activityDao.findByBugId(10L);
+        assertThat(saved.action()).isEqualTo("CREATED");
+        assertThat(saved.field()).isNull();
+        assertThat(saved.oldValue()).isNull();
+        assertThat(saved.newValue()).isEqualTo("Login broken");
+    }
 
-        assertThat(activities).hasSize(1);
-        Activity activity = activities.get(0);
-        assertThat(activity.userName()).isEqualTo("marie");
-        assertThat(activity.action()).isEqualTo("UPDATED");
-        assertThat(activity.field()).isEqualTo("description");
-        assertThat(activity.oldValue()).isEqualTo("old");
-        assertThat(activity.newValue()).isEqualTo("new");
+    @Test
+    void findByBugIdReturnsDescendingByCreatedAtThenId() {
+        activityDao.insert(42L, 1L, "CREATED", null, null, "Login broken");
+        activityDao.insert(42L, 2L, "UPDATED", "status", "NEU", "IN_BEARBEITUNG");
+        activityDao.insert(42L, 1L, "UPDATED", "priority", "MITTEL", "HOCH");
+
+        List<Activity> activities = activityDao.findByBugId(42L);
+
+        assertThat(activities).hasSize(3);
+        assertThat(activities.get(0).field()).isEqualTo("priority");
+        assertThat(activities.get(1).field()).isEqualTo("status");
+        assertThat(activities.get(2).action()).isEqualTo("CREATED");
+    }
+
+    @Test
+    void findByBugIdReturnsEmptyForBugWithoutActivities() {
+        assertThat(activityDao.findByBugId(42L)).isEmpty();
+    }
+
+    @Test
+    void findByBugIdScopesToSingleBug() {
+        jdbc.update("INSERT INTO bugs (id, title) VALUES (43, 'Other bug')");
+        activityDao.insert(42L, 1L, "CREATED", null, null, "Bug A");
+        activityDao.insert(43L, 1L, "CREATED", null, null, "Bug B");
+
+        List<Activity> bug42 = activityDao.findByBugId(42L);
+
+        assertThat(bug42).hasSize(1);
+        assertThat(bug42.get(0).newValue()).isEqualTo("Bug A");
     }
 }

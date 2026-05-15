@@ -12,7 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.mockito.Mockito.verify;
@@ -44,7 +44,7 @@ class ActivityControllerTest {
                 "status",
                 "NEU",
                 "IN_BEARBEITUNG",
-                LocalDateTime.of(2026, 5, 10, 11, 0)
+                OffsetDateTime.parse("2026-05-10T11:00:00Z")
         );
         when(activityService.getBugActivities(42L)).thenReturn(List.of(activity));
 
@@ -58,7 +58,7 @@ class ActivityControllerTest {
                 .andExpect(jsonPath("$[0].field").value("status"))
                 .andExpect(jsonPath("$[0].oldValue").value("NEU"))
                 .andExpect(jsonPath("$[0].newValue").value("IN_BEARBEITUNG"))
-                .andExpect(jsonPath("$[0].createdAt").value("2026-05-10T11:00:00"));
+                .andExpect(jsonPath("$[0].createdAt").value("2026-05-10T11:00:00Z"));
 
         verify(activityService).getBugActivities(42L);
     }
