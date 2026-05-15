@@ -61,8 +61,8 @@ export function CommentsSection({ bugId }: Props) {
       )}
 
       {error && !loading && (
-        <p className="font-mono text-xs text-amber-fg mb-3">
-          kommentare aktuell nicht verfügbar ({error})
+        <p className="font-mono text-xs text-red-fg mb-3" role="alert">
+          kommentare konnten nicht geladen werden ({error})
         </p>
       )}
 

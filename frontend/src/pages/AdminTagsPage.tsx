@@ -29,9 +29,8 @@ const EMPTY_DRAFT: EditDraft = { id: null, name: '', color: PRESET_COLORS[0]! }
 
 function describeApiError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
-    if (err.status === 403) return 'keine berechtigung'
-    if (err.status === 404 || err.status === 405)
-      return 'backend-endpoint noch nicht verfügbar — feature kommt mit dem tag-controller'
+    if (err.status === 403) return 'keine berechtigung — nur admin darf tags verwalten'
+    if (err.status === 404) return 'tag nicht gefunden'
     if (err.status === 409) return err.message || 'tag existiert bereits'
     return err.message || fallback
   }
@@ -39,7 +38,7 @@ function describeApiError(err: unknown, fallback: string): string {
 }
 
 export function AdminTagsPage() {
-  const { tags, loading, error, usingMock, refresh } = useTags()
+  const { tags, loading, error, refresh } = useTags()
   const [draft, setDraft] = useState<EditDraft>(EMPTY_DRAFT)
   const [submitting, setSubmitting] = useState(false)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -106,31 +105,20 @@ export function AdminTagsPage() {
         <button
           type="button"
           onClick={startCreate}
-          disabled={usingMock}
-          title={usingMock ? 'anlegen verfügbar mit /api/tags-Backend (T038a)' : undefined}
           className="font-mono text-xs bg-ink text-bg rounded px-3 py-1.5 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           + neuer tag
         </button>
       </header>
 
-      {usingMock && (
-        <p className="font-mono text-xs text-amber-fg mb-3" role="status">
-          mock-daten · /api/tags nicht erreichbar — anlegen / bearbeiten / löschen
-          deaktiviert bis T038a-Backend gemerged ist.
-        </p>
-      )}
-      {error && !usingMock && (
+      {error && (
         <p className="font-mono text-xs text-red-fg mb-3" role="alert">
           {error}
         </p>
       )}
 
       {/* Edit-Form */}
-      <section
-        className={`border border-border rounded p-4 mb-6 bg-surface ${usingMock ? 'opacity-50 pointer-events-none' : ''}`}
-        aria-disabled={usingMock}
-      >
+      <section className="border border-border rounded p-4 mb-6 bg-surface">
         <h2 className="font-mono text-xs text-ink-soft uppercase tracking-wide mb-3">
           {draft.id === null ? 'neuer tag' : `tag bearbeiten · #${draft.id}`}
         </h2>
@@ -144,7 +132,6 @@ export function AdminTagsPage() {
               type="text"
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              disabled={usingMock}
               maxLength={50}
               className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-ink disabled:opacity-50"
             />
@@ -159,7 +146,6 @@ export function AdminTagsPage() {
                 type="color"
                 value={draft.color}
                 onChange={(e) => setDraft({ ...draft, color: e.target.value })}
-                disabled={usingMock}
                 className="h-9 w-12 cursor-pointer rounded border border-border disabled:opacity-50"
               />
               <div className="flex gap-1">
@@ -168,7 +154,6 @@ export function AdminTagsPage() {
                     key={c}
                     type="button"
                     onClick={() => setDraft({ ...draft, color: c })}
-                    disabled={usingMock}
                     aria-label={`Farbe ${c}`}
                     className={`h-6 w-6 rounded border disabled:cursor-not-allowed ${
                       draft.color.toLowerCase() === c ? 'border-ink' : 'border-border'
@@ -183,7 +168,7 @@ export function AdminTagsPage() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={submitting || !draft.name.trim() || usingMock}
+              disabled={submitting || !draft.name.trim()}
               className="px-3 py-2 bg-ink text-bg font-mono text-xs rounded hover:opacity-90 disabled:opacity-50"
             >
               {submitting ? '...' : draft.id === null ? 'anlegen' : 'speichern'}
@@ -229,18 +214,14 @@ export function AdminTagsPage() {
                   <button
                     type="button"
                     onClick={() => startEdit(t)}
-                    disabled={usingMock}
-                    title={usingMock ? 'bearbeiten verfügbar mit T038a-Backend' : undefined}
-                    className="font-mono text-xs text-ink-soft hover:text-ink border border-border rounded px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="font-mono text-xs text-ink-soft hover:text-ink border border-border rounded px-2 py-1"
                   >
                     bearbeiten
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteId(t.id)}
-                    disabled={usingMock}
-                    title={usingMock ? 'löschen verfügbar mit T038a-Backend' : undefined}
-                    className="font-mono text-xs text-red-fg hover:opacity-80 border border-red-fg/40 rounded px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="font-mono text-xs text-red-fg hover:opacity-80 border border-red-fg/40 rounded px-2 py-1"
                   >
                     löschen
                   </button>

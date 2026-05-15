@@ -9,9 +9,9 @@ interface CommentsState {
 }
 
 /**
- * Lädt die Kommentar-Liste zu einem Bug (T062).
- * Backend-Endpoint kann noch fehlen — in dem Fall liefern wir eine leere
- * Liste mit notiertem Error, damit die UI keine harte Wand zeigt.
+ * Lädt die Kommentar-Liste zu einem Bug (T061 Backend live).
+ * Bei Fehler: leere Liste + notierter Error, die UI zeigt eine
+ * Fehlermeldung statt einer harten Wand.
  */
 export function useComments(bugId: number | null) {
   const [state, setState] = useState<CommentsState>({

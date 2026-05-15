@@ -10,9 +10,9 @@ import { ROLE_LABELS, USER_ROLES, type UserRole } from '../types/auth'
 
 function describeApiError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
-    if (err.status === 403) return 'keine berechtigung'
-    if (err.status === 404 || err.status === 405)
-      return 'backend-endpoint noch nicht verfügbar — feature kommt mit user-PATCH'
+    if (err.status === 403) return 'keine berechtigung — nur admin darf user verwalten'
+    if (err.status === 404) return 'user nicht gefunden'
+    if (err.status === 409) return err.message || 'konflikt'
     return err.message || fallback
   }
   return err instanceof Error ? err.message : fallback
@@ -72,11 +72,6 @@ export function AdminUsersPage() {
           {error}
         </p>
       )}
-
-      <p className="font-mono text-[11px] text-ink-soft mb-3">
-        hinweis: rollen- und aktiv-updates erfordern PATCH /api/users/{'{id}'} (T038b) —
-        falls noch nicht implementiert, kommt ein 404-toast.
-      </p>
 
       <div className="mb-3">
         <input

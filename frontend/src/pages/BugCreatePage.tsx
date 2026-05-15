@@ -9,7 +9,7 @@ import { BUG_PRIORITIES, PRIORITY_LABELS, type BugPriority } from '../types/bug'
 
 export function BugCreatePage() {
   const navigate = useNavigate()
-  const { tags, usingMock: tagsAreMock } = useTags()
+  const { tags } = useTags()
   const [priority, setPriority] = useState<BugPriority>('MITTEL')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -59,19 +59,12 @@ export function BugCreatePage() {
       </header>
 
       <BugForm
-        tags={tagsAreMock ? [] : tags}
+        tags={tags}
         submitLabel="create"
         submitting={submitting}
         error={error}
         onSubmit={handleSubmit}
         onCancel={() => navigate('/bugs')}
-        topAlert={
-          tagsAreMock ? (
-            <p className="font-mono text-xs text-amber-fg" role="status">
-              tag-auswahl deaktiviert · /api/tags noch nicht implementiert (T038a)
-            </p>
-          ) : null
-        }
         extraFields={
           <div>
             <label htmlFor="priority" className="block font-mono text-xs text-ink-soft mb-1">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { filterBugs } from '../lib/filterBugs'
-import { MOCK_BUGS, MOCK_TAGS } from '../lib/mockData'
+import { MOCK_BUGS } from '../lib/mockData'
 import { type Bug, type BugFilters, type Tag, type User } from '../types/bug'
 
 interface BugsState {
@@ -84,33 +84,28 @@ export function useBugs(filters: BugFilters, page = 1): BugsState {
 interface OptionsState {
   users: User[]
   tags: Tag[]
-  usingMockTags: boolean
 }
 
 /**
  * Builds the assignee + tag dropdowns. Users come from `/api/users`
  * (jeder eingeloggte User, inkl. unzugewiesener Tester); tags from
- * `/api/tags` mit Mock-Fallback wenn der Tag-Endpoint noch fehlt.
+ * `/api/tags` (T038a, live). Bei Fehler bleibt die jeweilige Liste leer.
  */
 export function useFilterOptions(): OptionsState {
   const [state, setState] = useState<OptionsState>({
     users: [],
     tags: [],
-    usingMockTags: false,
   })
 
   useEffect(() => {
     let cancelled = false
     Promise.all([
       api.listUsers().catch(() => [] as User[]),
-      api
-        .listTags()
-        .then((tags) => ({ tags, usingMock: false }))
-        .catch(() => ({ tags: MOCK_TAGS, usingMock: true })),
-    ]).then(([users, tagResult]) => {
+      api.listTags().catch(() => [] as Tag[]),
+    ]).then(([users, tags]) => {
       if (cancelled) return
       const sortedUsers = [...users].sort((a, b) => a.username.localeCompare(b.username))
-      setState({ users: sortedUsers, tags: tagResult.tags, usingMockTags: tagResult.usingMock })
+      setState({ users: sortedUsers, tags })
     })
     return () => {
       cancelled = true
