@@ -1,10 +1,10 @@
 package at.mci.bugtracker.controller;
 
+import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
 import at.mci.bugtracker.model.BugPriority;
 import at.mci.bugtracker.model.BugStatus;
-import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.service.BugPage;
 import at.mci.bugtracker.service.BugService;
 import org.junit.jupiter.api.Test;
@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -91,12 +94,12 @@ class BugControllerTest {
     }
 
     @Test
-    void listBugsClampsNegativePageAndDefaultsEmptyFilters() throws Exception {
+    void listBugsAcceptsSnakeCaseAssigneeAlias() throws Exception {
         when(bugService.listBugs(any(BugFilter.class), eq(0)))
                 .thenReturn(new BugPage(List.of(), 0, 0, 50));
 
         mockMvc.perform(get("/api/bugs")
-                        .param("assigneeId", "3")
+                        .param("assignee_id", "3")
                         .param("page", "-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(0))
@@ -107,5 +110,35 @@ class BugControllerTest {
         BugFilter filter = filterCaptor.getValue();
         assertThat(filter.assigneeId()).isEqualTo(3L);
         assertThat(filter.tagIds()).isEmpty();
+    }
+
+    @Test
+    void createBugReturnsFieldValidationMessages() throws Exception {
+        mockMvc.perform(post("/api/bugs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "",
+                                  "description": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Titel ist erforderlich"))
+                .andExpect(jsonPath("$.description").value("Beschreibung ist erforderlich"));
+    }
+
+    @Test
+    void updateBugReturnsSingleFieldMessageWhenMultipleConstraintsFail() throws Exception {
+        mockMvc.perform(put("/api/bugs/42")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "",
+                                  "description": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").exists())
+                .andExpect(jsonPath("$.description").exists());
     }
 }

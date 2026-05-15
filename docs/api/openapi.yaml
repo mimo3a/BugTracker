@@ -208,7 +208,7 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/Priority'
-        - name: assigneeId
+        - name: assignee_id
           in: query
           description: Nach Bearbeiter-ID filtern
           schema:

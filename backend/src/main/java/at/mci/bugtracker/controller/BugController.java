@@ -18,8 +18,8 @@ import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.controller.dto.BugListResponse;
 import at.mci.bugtracker.controller.dto.BugResponse;
 import at.mci.bugtracker.controller.dto.CreateBugRequest;
-import at.mci.bugtracker.controller.dto.UpdateBugRequest;
 import at.mci.bugtracker.controller.dto.UpdateAssigneeRequest;
+import at.mci.bugtracker.controller.dto.UpdateBugRequest;
 import at.mci.bugtracker.controller.dto.UpdateStatusRequest;
 import at.mci.bugtracker.model.Bug;
 import at.mci.bugtracker.model.BugFilter;
@@ -46,17 +46,17 @@ public class BugController {
             @RequestParam(name = "status", required = false) List<BugStatus> statuses,
             @RequestParam(name = "priority", required = false) BugPriority priority,
             @RequestParam(name = "assigneeId", required = false) Long assigneeId,
+            @RequestParam(name = "assignee_id", required = false) Long assigneeIdSnakeCase,
             @RequestParam(name = "tagIds", required = false) List<Long> tagIds,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "archived", defaultValue = "false") boolean archived,
             @RequestParam(name = "page", defaultValue = "0") int page
     ) {
-        // pageSize ist bewusst nicht client-konfigurierbar — fester Wert verhindert
-        // großflächige Queries und vereinfacht die API für die MVP-Phase.
+        Long effectiveAssigneeId = assigneeId != null ? assigneeId : assigneeIdSnakeCase;
         BugFilter filter = new BugFilter(
                 statuses,
                 priority,
-                assigneeId,
+                effectiveAssigneeId,
                 tagIds,
                 search,
                 archived,
@@ -111,7 +111,7 @@ public class BugController {
     @PatchMapping("/{id}/assignee")
     public BugResponse updateAssignee(
             @PathVariable Long id,
-            @RequestBody UpdateAssigneeRequest request
+            @Valid @RequestBody UpdateAssigneeRequest request
     ) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.updateAssignee(id, request.assigneeId(), session.userId());

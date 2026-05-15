@@ -1,16 +1,18 @@
 package at.mci.bugtracker.controller;
 
-import at.mci.bugtracker.auth.CurrentSession;
 import at.mci.bugtracker.controller.dto.ActivityResponse;
 import at.mci.bugtracker.model.Activity;
 import at.mci.bugtracker.service.ActivityService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/bugs/{bugId}/activities")
 public class ActivityController {
 
     private final ActivityService activityService;
@@ -19,25 +21,25 @@ public class ActivityController {
         this.activityService = activityService;
     }
 
-    @GetMapping("/api/bugs/{bugId}/activities")
-    public List<ActivityResponse> getBugActivities(@PathVariable long bugId) {
-        CurrentSession.require();
-        return activityService.getBugActivities(bugId).stream()
+    @GetMapping
+    public ResponseEntity<List<ActivityResponse>> getBugActivities(@PathVariable long bugId) {
+        List<ActivityResponse> response = activityService.getBugActivities(bugId).stream()
                 .map(ActivityController::toResponse)
                 .toList();
+        return ResponseEntity.ok(response);
     }
 
-    private static ActivityResponse toResponse(Activity a) {
+    private static ActivityResponse toResponse(Activity activity) {
         return new ActivityResponse(
-                a.id(),
-                a.bugId(),
-                a.userId(),
-                a.userName(),
-                a.action(),
-                a.field(),
-                a.oldValue(),
-                a.newValue(),
-                a.createdAt()
+                activity.id(),
+                activity.bugId(),
+                activity.userId(),
+                activity.userName(),
+                activity.action(),
+                activity.field(),
+                activity.oldValue(),
+                activity.newValue(),
+                activity.createdAt()
         );
     }
 }

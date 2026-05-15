@@ -22,8 +22,6 @@ import java.util.Objects;
 @Service
 public class BugService {
 
-    // Activity-Actions (FA-14). Schema bewusst polymorph: 'action' nennt die
-    // Operation, 'field' bei UPDATED welches Feld. Siehe V3__activities.sql.
     static final String ACTION_CREATED = "CREATED";
     static final String ACTION_UPDATED = "UPDATED";
 
@@ -88,8 +86,6 @@ public class BugService {
 
         List<Long> tagIds = request.tagIds() != null ? request.tagIds() : existing.tagIds();
 
-        // Status / Priority / Assignee laufen über eigene PATCH-Endpoints und
-        // werden hier bewusst nicht angefasst.
         Bug updated = new Bug(
                 existing.id(),
                 request.title(),
@@ -120,7 +116,6 @@ public class BugService {
     public Bug updateStatus(Long id, BugStatus newStatus, long userId) {
         Bug existing = requireEditable(id);
         User actor = requireActor(userId);
-        // FA-06: Status-Wechsel ist DEVELOPER+ADMIN-only. TESTER kann nicht.
         if (!isPrivileged(actor)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, Status zu ändern");
         }
@@ -226,8 +221,6 @@ public class BugService {
         return saved;
     }
 
-    // --- Helper -----------------------------------------------------------
-
     private Bug requireEditable(Long id) {
         Bug existing = bugDao.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bug nicht gefunden"));
@@ -246,7 +239,6 @@ public class BugService {
     }
 
     private void requireCanEditBugContent(Bug existing, User actor) {
-        // FA-04: DEVELOPER + ADMIN dürfen jeden Bug editieren; TESTER nur den eigenen.
         boolean ownReport = actor.role() == UserRole.TESTER && existing.reporterId() == actor.id();
         if (!isPrivileged(actor) && !ownReport) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Keine Berechtigung, diesen Bug zu bearbeiten");
@@ -258,7 +250,9 @@ public class BugService {
     }
 
     private void recordChange(long bugId, long userId, String field, Object oldValue, Object newValue) {
-        if (Objects.equals(oldValue, newValue)) return;
+        if (Objects.equals(oldValue, newValue)) {
+            return;
+        }
         activityDao.insert(bugId, userId, ACTION_UPDATED, field, stringOf(oldValue), stringOf(newValue));
     }
 
