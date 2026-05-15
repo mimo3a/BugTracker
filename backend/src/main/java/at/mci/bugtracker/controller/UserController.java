@@ -5,6 +5,7 @@ import at.mci.bugtracker.auth.SessionStore;
 import at.mci.bugtracker.controller.dto.UpdateUserRequest;
 import at.mci.bugtracker.model.UserWithoutHash;
 import at.mci.bugtracker.service.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,7 +31,13 @@ public class UserController {
         return userService.listUsers();
     }
 
+    // FA-15: User-Verwaltung ist ADMIN-only. @PreAuthorize ist die erste
+    // Verteidigungslinie (greift im vollen Context vor dem Service);
+    // UserService prüft die ADMIN-Rolle zusätzlich (Defense-in-Depth +
+    // Self-Lockout-Schutz). GET /api/users bleibt für alle Eingeloggten
+    // offen (Frontend-Contract T053b / T038b).
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public UserWithoutHash updateUser(
             @PathVariable Long id,
             @RequestBody UpdateUserRequest request

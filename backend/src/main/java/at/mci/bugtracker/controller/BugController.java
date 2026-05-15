@@ -2,6 +2,7 @@ package at.mci.bugtracker.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +33,12 @@ import jakarta.validation.Valid;
 
 import java.util.List;
 
+// T021b Rollen-Matrix (Pflichtenheft 9.3): Lesen + Bug-Anlegen (FA-01/02/03/
+// 09/10) ist für jeden eingeloggten User inkl. TESTER erlaubt → keine
+// Annotation (SecurityConfig erzwingt bereits authenticated). Mutierende
+// Operationen (FA-04..08, Bearbeiten/Status/Priorität/Assignee/Archiv) sind
+// DEVELOPER+ — durchgesetzt per @PreAuthorize ("ROLE_"-Authority kommt aus
+// SessionAuthFilter, @EnableMethodSecurity in SecurityConfig).
 @RestController
 @RequestMapping("/api/bugs")
 public class BugController {
@@ -90,6 +97,7 @@ public class BugController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
     public BugResponse updateBug(
             @PathVariable Long id,
             @Valid @RequestBody UpdateBugRequest request
@@ -100,6 +108,7 @@ public class BugController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
     public BugResponse updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request
@@ -110,6 +119,7 @@ public class BugController {
     }
 
     @PatchMapping("/{id}/priority")
+    @PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
     public BugResponse updatePriority(
             @PathVariable Long id,
             @Valid @RequestBody UpdatePriorityRequest request
@@ -120,6 +130,7 @@ public class BugController {
     }
 
     @PatchMapping("/{id}/assignee")
+    @PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
     public BugResponse updateAssignee(
             @PathVariable Long id,
             @Valid @RequestBody UpdateAssigneeRequest request
@@ -130,6 +141,7 @@ public class BugController {
     }
 
     @PatchMapping("/{id}/archive")
+    @PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
     public BugResponse archiveBug(@PathVariable Long id) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.archiveBug(id, session.userId());
@@ -137,6 +149,7 @@ public class BugController {
     }
 
     @PatchMapping("/{id}/restore")
+    @PreAuthorize("hasAnyRole('DEVELOPER','ADMIN')")
     public BugResponse restoreBug(@PathVariable Long id) {
         SessionStore.Session session = CurrentSession.require();
         Bug bug = bugService.restoreBug(id, session.userId());
